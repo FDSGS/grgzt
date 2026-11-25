@@ -1,0 +1,69 @@
+name: 补传安装包到码云
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: '要补传的版本标签，例如 v1.1.3'
+        required: true
+        default: 'v1.1.3'
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    name: 从 GitHub Release 转存到码云
+    runs-on: ubuntu-latest
+    env:
+      TAG_NAME: ${{ inputs.tag_name }}
+    steps:
+      - name: 下载 GitHub Release 中的安装包
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release download "$TAG_NAME" \
+            --repo FDSGS/grgzt \
+            --dir release-assets \
+            --pattern '*.exe' \
+            --pattern '*.dmg' \
+            --pattern '*.zip' \
+            --clobber
+
+      - name: 创建码云 Release 并上传附件
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${GITEE_TOKEN:-}" ]; then
+            echo "::error::未配置 GITEE_TOKEN"
+            exit 1
+          fi
+
+          API="https://gitee.com/api/v5/repos/limingtiana/grgzt"
+          STATUS=$(curl -sS -o gitee-release.json -w '%{http_code}' \
+            "${API}/releases/tags/${TAG_NAME}?access_token=${GITEE_TOKEN}")
+
+          if [ "$STATUS" != "200" ]; then
+            curl --fail --silent --show-error --request POST "${API}/releases" \
+              --data-urlencode "access_token=${GITEE_TOKEN}" \
+              --data-urlencode "tag_name=${TAG_NAME}" \
+              --data-urlencode "name=个人工作台 ${TAG_NAME}" \
+              --data-urlencode "body=Windows 和 macOS 安装包，由 GitHub Release 自动转存。" \
+              --data-urlencode "target_commitish=main" \
+              --output gitee-release.json
+          fi
+
+          RELEASE_ID=$(python3 -c 'import json; print(json.load(open("gitee-release.json"))["id"])')
+          find release-assets -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.zip' \) -print0 |
+            while IFS= read -r -d '' FILE; do
+              echo "正在上传：$(basename "$FILE")"
+              curl --fail --silent --show-error --request POST \
+                "${API}/releases/${RELEASE_ID}/attach_files" \
+                --form "access_token=${GITEE_TOKEN}" \
+                --form "file=@${FILE}"
+              echo
+            done
