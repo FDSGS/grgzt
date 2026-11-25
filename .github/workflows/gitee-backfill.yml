@@ -72,7 +72,12 @@ jobs:
           find release-assets -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.zip' \) -print0 |
             while IFS= read -r -d '' FILE; do
               echo "正在上传：$(basename "$FILE")"
-              curl --fail --silent --show-error --request POST \
+              curl --fail --show-error --progress-bar --http1.1 \
+                --connect-timeout 30 \
+                --speed-limit 1024 \
+                --speed-time 60 \
+                --max-time 1800 \
+                --request POST \
                 "${API}/releases/${RELEASE_ID}/attach_files" \
                 --form "access_token=${GITEE_TOKEN}" \
                 --form "file=@${FILE}"
