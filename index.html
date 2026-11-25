@@ -183,6 +183,8 @@
   .tb-brand{display:flex;align-items:center;gap:8px;margin-right:12px;
     font-size:12px;font-weight:400;letter-spacing:.6px}
   .tb-dot{width:7px;height:7px;border-radius:2.5px;background:var(--accent);box-shadow:0 0 0 3px var(--chip)}
+  .tb-logo{width:26px;height:26px;border-radius:8px;object-fit:cover;display:block;
+    box-shadow:0 1px 4px rgba(0,0,0,.18)}
   .menubar{display:flex;align-items:center;gap:1px;-webkit-app-region:no-drag}
   .menu-item{border:none;background:transparent;color:var(--titlebar-fg);font-family:inherit;
     font-size:12px;letter-spacing:.3px;padding:5px 10px;border-radius:7px;cursor:default;
@@ -358,7 +360,7 @@
 <body>
 <div class="shell">
   <div class="titlebar" id="titlebar">
-    <div class="tb-brand"><span class="tb-dot"></span><span>个人工作台</span></div>
+    <div class="tb-brand"><img class="tb-logo" src="assets/logo.png" alt=""><span>个人工作台</span></div>
     <nav class="menubar" id="menubar">
       <button class="menu-item" data-menu="file">文件</button>
       <button class="menu-item" data-menu="edit">编辑</button>

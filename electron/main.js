@@ -3,6 +3,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 
 const isMac = process.platform === 'darwin';
+const logoPath = path.join(__dirname, '..', 'assets', 'logo.png');
 
 let mainWin = null;
 let widgetWin = null;
@@ -66,7 +67,7 @@ function createWidget() {
     minimizable: false,
     fullscreenable: false,
     skipTaskbar: true,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     hasShadow: true,
     show: false,
     backgroundColor: '#00000000',
@@ -78,7 +79,6 @@ function createWidget() {
     }
   });
 
-  widgetWin.setAlwaysOnTop(true, 'floating');
   if (isMac) widgetWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
   widgetWin.loadFile(path.join(__dirname, '..', 'widget.html'));
@@ -125,6 +125,7 @@ function showAbout() {
     type: 'info',
     title: '关于个人工作台',
     message: '个人工作台',
+    icon: logoPath,
     detail:
       '作者：李德胜 · 方城县破默网络科技工作室\n' +
       '微信：18625698675\n' +
@@ -254,6 +255,7 @@ function createWindow() {
     backgroundColor: '#DDE5E2',
     show: false,
     title: '个人工作台',
+    icon: logoPath,
     frame: isMac,
     titleBarStyle: isMac ? 'hiddenInset' : 'default',
     trafficLightPosition: isMac ? { x: 18, y: 15 } : undefined,

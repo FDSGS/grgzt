@@ -63,6 +63,7 @@
   html,body{height:100%;background:transparent;overflow:hidden}
   body{-webkit-user-select:none;user-select:none}
   .widget{
+    position:relative;
     height:100%;padding:18px;display:flex;flex-direction:column;
     border-radius:22px;background:var(--card-bg);border:1px solid var(--card-border);
     box-shadow:var(--card-shadow);color:var(--text);
@@ -72,7 +73,9 @@
   button{-webkit-app-region:no-drag}
 
   .head{display:flex;align-items:center;justify-content:space-between;gap:8px}
-  .date{font-size:11.5px;letter-spacing:.6px;color:var(--text-soft);font-weight:400}
+  .brand{display:flex;align-items:center;gap:7px;min-width:0}
+  .logo{width:20px;height:20px;border-radius:6px;object-fit:cover;display:block;opacity:.95;flex:0 0 auto}
+  .date{font-size:11.5px;letter-spacing:.6px;color:var(--text-soft);font-weight:400;white-space:nowrap}
   .actions{display:flex;align-items:center;gap:5px}
   .icon-btn{width:24px;height:24px;border:none;border-radius:50%;background:var(--chip);
     color:var(--text-soft);display:flex;align-items:center;justify-content:center;
@@ -83,9 +86,19 @@
   #closeBtn:hover{background:#E5484D;color:#fff}
   #lockBtn.on{background:var(--accent);color:#fff}
   #lockBtn.on:hover{background:var(--accent);color:#fff;filter:brightness(1.06)}
+  #opacityBtn.on{background:var(--chip-hover);color:var(--text)}
   #lockBtn .ico-lock{display:none}
   .widget.locked #lockBtn .ico-unlock{display:none}
   .widget.locked #lockBtn .ico-lock{display:block}
+
+  .opacity-row{position:absolute;left:18px;right:18px;bottom:18px;z-index:6;
+    display:flex;align-items:center;gap:9px;padding:9px 11px;
+    background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;
+    box-shadow:var(--card-shadow);backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%)}
+  .opacity-row[hidden]{display:none}
+  .opacity-row span{font-size:10.5px;color:var(--text-faint);letter-spacing:.5px;flex:0 0 auto}
+  .opacity-row input[type=range]{flex:1 1 auto;min-width:0;height:3px;accent-color:var(--accent);cursor:default}
+  .opacity-row b{font-size:10.5px;font-weight:400;color:var(--text-soft);font-variant-numeric:tabular-nums;min-width:30px;text-align:right}
 
   .row{display:flex;align-items:flex-end;justify-content:space-between;margin-top:10px}
   .pct{font-weight:200;font-size:44px;line-height:.86;letter-spacing:-2px;font-variant-numeric:tabular-nums;color:var(--text)}
@@ -120,8 +133,14 @@
 <body>
 <div class="widget">
   <div class="head">
-    <div class="date" id="date">今天</div>
+    <div class="brand">
+      <img class="logo" src="assets/logo.png" alt="">
+      <div class="date" id="date">今天</div>
+    </div>
     <div class="actions">
+      <button class="icon-btn" id="opacityBtn" title="调整透明度">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.7 17.7 8.4a8 8 0 1 1-11.3 0z"/></svg>
+      </button>
       <button class="icon-btn" id="lockBtn" title="锁定位置">
         <svg class="ico-unlock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
         <svg class="ico-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -146,6 +165,11 @@
   </div>
   <div class="list-title">待办</div>
   <ul class="list" id="list"></ul>
+  <div class="opacity-row" id="opacityRow" hidden>
+    <span>透明度</span>
+    <input type="range" id="opacityRange" min="40" max="100" step="5" value="100">
+    <b id="opacityVal">100%</b>
+  </div>
   <button class="open" id="openBtn">打开工作台</button>
 </div>
 <script>
@@ -155,11 +179,16 @@
   var STORE_KEY = 'workbench.daily.v2';
   var THEME_KEY = 'workbench.theme.v1';
   var LOCK_KEY = 'workbench.widget.lock';
+  var OPACITY_KEY = 'workbench.widget.opacity';
   var SEGMENTS = 14;
   var MAX_ITEMS = 3;
 
   var widgetEl = document.querySelector('.widget');
   var lockBtn = document.getElementById('lockBtn');
+  var opacityBtn = document.getElementById('opacityBtn');
+  var opacityRow = document.getElementById('opacityRow');
+  var opacityRange = document.getElementById('opacityRange');
+  var opacityVal = document.getElementById('opacityVal');
 
   function isLocked(){
     try{ return localStorage.getItem(LOCK_KEY) === '1'; }catch(e){ return false; }
@@ -175,6 +204,32 @@
   lockBtn.addEventListener('click', function(){
     try{ localStorage.setItem(LOCK_KEY, isLocked() ? '0' : '1'); }catch(e){}
     applyLock();
+  });
+
+  function getOpacity(){
+    var v = 100;
+    try{ v = parseInt(localStorage.getItem(OPACITY_KEY), 10); }catch(e){}
+    if(!Number.isFinite(v)) v = 100;
+    return Math.min(100, Math.max(40, v));
+  }
+
+  function applyOpacity(){
+    var v = getOpacity();
+    widgetEl.style.opacity = String(v / 100);
+    opacityRange.value = v;
+    opacityVal.textContent = v + '%';
+  }
+
+  opacityBtn.addEventListener('click', function(){
+    var open = opacityRow.hasAttribute('hidden');
+    if(open) opacityRow.removeAttribute('hidden');
+    else opacityRow.setAttribute('hidden', '');
+    opacityBtn.classList.toggle('on', open);
+  });
+
+  opacityRange.addEventListener('input', function(){
+    try{ localStorage.setItem(OPACITY_KEY, String(opacityRange.value)); }catch(e){}
+    applyOpacity();
   });
 
   function todayKey(){
@@ -256,16 +311,18 @@
   });
 
   window.addEventListener('storage', function(e){
-    if(!e.key || e.key === STORE_KEY || e.key === THEME_KEY || e.key === LOCK_KEY){
+    if(!e.key || e.key === STORE_KEY || e.key === THEME_KEY || e.key === LOCK_KEY || e.key === OPACITY_KEY){
       applyTheme();
       applyLock();
+      applyOpacity();
       render();
     }
   });
-  window.addEventListener('focus', function(){ applyLock(); render(); });
+  window.addEventListener('focus', function(){ applyLock(); applyOpacity(); render(); });
 
   applyTheme();
   applyLock();
+  applyOpacity();
   render();
   setInterval(function(){
     applyTheme();
