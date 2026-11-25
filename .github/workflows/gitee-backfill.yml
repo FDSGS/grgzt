@@ -47,7 +47,12 @@ jobs:
           STATUS=$(curl -sS -o gitee-release.json -w '%{http_code}' \
             "${API}/releases/tags/${TAG_NAME}?access_token=${GITEE_TOKEN}")
 
-          if [ "$STATUS" != "200" ]; then
+          RELEASE_ID=""
+          if [ "$STATUS" = "200" ]; then
+            RELEASE_ID=$(python3 -c 'import json; data=json.load(open("gitee-release.json")); print(data.get("id", "") if isinstance(data, dict) else "")')
+          fi
+
+          if [ -z "$RELEASE_ID" ]; then
             curl --fail --silent --show-error --request POST "${API}/releases" \
               --data-urlencode "access_token=${GITEE_TOKEN}" \
               --data-urlencode "tag_name=${TAG_NAME}" \
@@ -55,9 +60,8 @@ jobs:
               --data-urlencode "body=Windows 和 macOS 安装包，由 GitHub Release 自动转存。" \
               --data-urlencode "target_commitish=main" \
               --output gitee-release.json
+            RELEASE_ID=$(python3 -c 'import json; print(json.load(open("gitee-release.json"))["id"])')
           fi
-
-          RELEASE_ID=$(python3 -c 'import json; print(json.load(open("gitee-release.json"))["id"])')
           find release-assets -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.zip' \) -print0 |
             while IFS= read -r -d '' FILE; do
               echo "正在上传：$(basename "$FILE")"
