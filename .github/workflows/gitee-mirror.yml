@@ -1,0 +1,34 @@
+name: 同步代码到码云
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    name: 同步 main 分支和版本标签
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 推送到码云
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${GITEE_TOKEN:-}" ]; then
+            echo "::error::请先在 GitHub 仓库 Settings → Secrets and variables → Actions 中配置 GITEE_TOKEN"
+            exit 1
+          fi
+
+          git remote add gitee "https://oauth2:${GITEE_TOKEN}@gitee.com/limingtiana/grgzt.git"
+          git push gitee HEAD:main
+          git push gitee --tags

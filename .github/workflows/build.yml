@@ -58,3 +58,53 @@ jobs:
             release/*.zip
           generate_release_notes: true
           fail_on_unmatched_files: false
+
+  gitee-release:
+    name: 同步安装包到码云 Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: 下载 Windows 和 macOS 安装包
+        uses: actions/download-artifact@v4
+        with:
+          pattern: workbench-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: 创建码云 Release 并上传附件
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${GITEE_TOKEN:-}" ]; then
+            echo "::error::请先在 GitHub 仓库 Settings → Secrets and variables → Actions 中配置 GITEE_TOKEN"
+            exit 1
+          fi
+
+          API="https://gitee.com/api/v5/repos/limingtiana/grgzt"
+          STATUS=$(curl -sS -o gitee-release.json -w '%{http_code}' \
+            "${API}/releases/tags/${TAG_NAME}?access_token=${GITEE_TOKEN}")
+
+          if [ "$STATUS" != "200" ]; then
+            curl --fail --silent --show-error --request POST "${API}/releases" \
+              --data-urlencode "access_token=${GITEE_TOKEN}" \
+              --data-urlencode "tag_name=${TAG_NAME}" \
+              --data-urlencode "name=个人工作台 ${TAG_NAME}" \
+              --data-urlencode "body=Windows 和 macOS 安装包，由 GitHub Actions 自动构建并同步。" \
+              --data-urlencode "target_commitish=main" \
+              --output gitee-release.json
+          fi
+
+          RELEASE_ID=$(python3 -c 'import json; print(json.load(open("gitee-release.json"))["id"])')
+          find release-assets -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.zip' \) -print0 |
+            while IFS= read -r -d '' FILE; do
+              echo "正在上传：$(basename "$FILE")"
+              curl --fail --silent --show-error --request POST \
+                "${API}/releases/${RELEASE_ID}/attach_files" \
+                --form "access_token=${GITEE_TOKEN}" \
+                --form "file=@${FILE}"
+              echo
+            done
