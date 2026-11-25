@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>个人工作台 · Today</title>
+<script>
+(function(){
+  var t = null;
+  try{ t = localStorage.getItem('workbench.theme.v1'); }catch(e){}
+  if(!t){
+    t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'mist';
+  }
+  window.__initialTheme = t;
+  document.documentElement.classList.add('theme-' + t);
+  document.documentElement.setAttribute('data-theme', t);
+
+  // Electron + macOS 时启用无边框标题栏适配
+  var ua = navigator.userAgent;
+  if (ua.indexOf('Electron') > -1 && ua.indexOf('Mac') > -1) {
+    document.documentElement.classList.add('is-mac');
+  }
+})();
+</script>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --accent:#007AFF;
+    --accent-dim:rgba(0,122,255,.42);
+    --seg-track:rgba(17,17,17,.06);
+    --seg-thumb:rgba(255,255,255,.94);
+    --doing-shadow:0 8px 24px rgba(0,122,255,.28);
+    --radius:22px;
+    --radius-sm:14px;
+    font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Segoe UI','Helvetica Neue','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+
+    /* 日间 */
+    --bg:
+      radial-gradient(1200px 700px at 10% 6%, rgba(213,232,223,.95) 0%, rgba(213,232,223,0) 55%),
+      radial-gradient(1000px 800px at 96% 96%, rgba(188,220,209,.85) 0%, rgba(188,220,209,0) 60%),
+      radial-gradient(900px 600px at 82% 12%, rgba(232,241,237,.75) 0%, rgba(232,241,237,0) 62%),
+      linear-gradient(160deg,#E9ECEA 0%,#DEE5E2 45%,#D3E2DB 100%);
+    --glow:
+      radial-gradient(600px 400px at 50% 28%, rgba(255,255,255,.35), transparent 70%),
+      radial-gradient(500px 320px at 18% 82%, rgba(255,255,255,.25), transparent 70%);
+    --pct-grad:linear-gradient(180deg,#0d0d0d 0%,#0d0d0d 55%, rgba(13,13,13,.3) 100%);
+    --panel:rgba(255,255,255,.5);
+    --panel-border:rgba(255,255,255,.72);
+    --panel-hover:rgba(255,255,255,.66);
+    --text:#111;
+    --text-soft:rgba(17,17,17,.55);
+    --text-faint:rgba(17,17,17,.34);
+    --card:rgba(255,255,255,.72);
+    --card-border:rgba(17,17,17,.05);
+    --card-shadow:0 2px 10px rgba(80,100,90,.05);
+    --card-shadow-hover:0 8px 22px rgba(80,100,90,.1);
+    --chip:rgba(17,17,17,.06);
+    --chip-hover:rgba(17,17,17,.15);
+    --track:rgba(17,17,17,.055);
+    --seg-off:rgba(17,17,17,.09);
+    --line:rgba(17,17,17,.12);
+    --done-card:rgba(255,255,255,.3);
+    --done-border:rgba(17,17,17,.08);
+    --input-bg:rgba(255,255,255,.9);
+    --btn-bg:#111;
+    --btn-fg:#fff;
+    --btn-shadow:0 6px 18px rgba(17,17,17,.22);
+    --btn-shadow-hover:0 12px 28px rgba(17,17,17,.28);
+    --shadow:0 10px 40px rgba(80,100,90,.12), 0 2px 8px rgba(80,100,90,.06);
+    color:var(--text);
+  }
+
+  /* 暮色：低亮度中间调 */
+  html.theme-mist{
+    --accent:#007AFF;
+    --accent-dim:rgba(0,122,255,.4);
+    --seg-track:rgba(21,25,23,.07);
+    --seg-thumb:rgba(255,255,255,.88);
+    --doing-shadow:0 8px 24px rgba(0,122,255,.26);
+    --bg:
+      radial-gradient(1200px 700px at 10% 6%, rgba(196,209,202,.9) 0%, rgba(196,209,202,0) 55%),
+      radial-gradient(1000px 800px at 96% 96%, rgba(178,196,187,.85) 0%, rgba(178,196,187,0) 60%),
+      radial-gradient(900px 600px at 82% 12%, rgba(208,219,212,.7) 0%, rgba(208,219,212,0) 62%),
+      linear-gradient(160deg,#CBD2CE 0%,#BFC9C4 45%,#B4C3BC 100%);
+    --glow:
+      radial-gradient(600px 400px at 50% 28%, rgba(255,255,255,.22), transparent 70%),
+      radial-gradient(500px 320px at 18% 82%, rgba(255,255,255,.16), transparent 70%);
+    --pct-grad:linear-gradient(180deg,#151917 0%,#151917 55%, rgba(21,25,23,.3) 100%);
+    --panel:rgba(255,255,255,.42);
+    --panel-border:rgba(255,255,255,.55);
+    --panel-hover:rgba(255,255,255,.58);
+    --text:#151917;
+    --text-soft:rgba(21,25,23,.6);
+    --text-faint:rgba(21,25,23,.38);
+    --card:rgba(255,255,255,.62);
+    --card-border:rgba(21,25,23,.06);
+    --card-shadow:0 2px 10px rgba(62,78,71,.08);
+    --card-shadow-hover:0 8px 22px rgba(62,78,71,.14);
+    --chip:rgba(21,25,23,.07);
+    --chip-hover:rgba(21,25,23,.16);
+    --track:rgba(21,25,23,.07);
+    --seg-off:rgba(21,25,23,.1);
+    --line:rgba(21,25,23,.14);
+    --done-card:rgba(255,255,255,.26);
+    --done-border:rgba(21,25,23,.1);
+    --input-bg:rgba(255,255,255,.82);
+    --btn-bg:#151917;
+    --btn-fg:#F4F7F5;
+    --btn-shadow:0 6px 18px rgba(21,25,23,.28);
+    --btn-shadow-hover:0 12px 28px rgba(21,25,23,.34);
+    --shadow:0 10px 40px rgba(62,78,71,.16), 0 2px 8px rgba(62,78,71,.08);
+  }
+
+  /* 暗夜 */
+  html.theme-dark{
+    --accent:#0A84FF;
+    --accent-dim:rgba(10,132,255,.45);
+    --seg-track:rgba(255,255,255,.075);
+    --seg-thumb:rgba(255,255,255,.17);
+    --doing-shadow:0 8px 24px rgba(0,0,0,.5);
+    --bg:
+      radial-gradient(1200px 700px at 12% 6%, rgba(52,74,62,.55) 0%, rgba(52,74,62,0) 58%),
+      radial-gradient(1000px 800px at 94% 94%, rgba(40,60,50,.6) 0%, rgba(40,60,50,0) 62%),
+      radial-gradient(900px 600px at 80% 14%, rgba(58,78,68,.4) 0%, rgba(58,78,68,0) 60%),
+      linear-gradient(160deg,#161A18 0%,#101413 48%,#0B0F0D 100%);
+    --glow:
+      radial-gradient(600px 400px at 50% 26%, rgba(10,132,255,.07), transparent 70%),
+      radial-gradient(520px 340px at 16% 84%, rgba(255,255,255,.035), transparent 72%);
+    --pct-grad:linear-gradient(180deg,#F4F7F5 0%,#F4F7F5 55%, rgba(244,247,245,.35) 100%);
+    --panel:rgba(255,255,255,.045);
+    --panel-border:rgba(255,255,255,.09);
+    --panel-hover:rgba(255,255,255,.085);
+    --text:#EDF1EE;
+    --text-soft:rgba(237,241,238,.56);
+    --text-faint:rgba(237,241,238,.3);
+    --card:rgba(255,255,255,.055);
+    --card-border:rgba(255,255,255,.07);
+    --card-shadow:0 2px 12px rgba(0,0,0,.35);
+    --card-shadow-hover:0 10px 26px rgba(0,0,0,.5);
+    --chip:rgba(255,255,255,.08);
+    --chip-hover:rgba(255,255,255,.18);
+    --track:rgba(255,255,255,.06);
+    --seg-off:rgba(255,255,255,.11);
+    --line:rgba(255,255,255,.14);
+    --done-card:rgba(255,255,255,.028);
+    --done-border:rgba(255,255,255,.09);
+    --input-bg:rgba(255,255,255,.07);
+    --btn-bg:#EDF1EE;
+    --btn-fg:#0B0F0D;
+    --btn-shadow:0 6px 18px rgba(0,0,0,.55);
+    --btn-shadow-hover:0 12px 28px rgba(0,0,0,.65);
+    --shadow:0 10px 40px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.3);
+  }
+  html,body{height:100%}
+  body{
+    min-height:100vh;
+    background:var(--bg);
+    background-attachment:fixed;
+    overflow-x:hidden;
+  }
+  body.switching{animation:themeFade .5s ease}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:var(--glow);}
+  .app{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:44px 40px 80px}
+
+  /* macOS 桌面端：为红绿灯按钮留出空间，并允许拖动窗口 */
+  html.is-mac .app{padding-top:62px}
+  html.is-mac header{-webkit-app-region:drag}
+  html.is-mac header button,
+  html.is-mac header input,
+  html.is-mac header .theme-switch,
+  html.is-mac .task{-webkit-app-region:no-drag}
+
+  header{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:24px;margin-bottom:32px}
+  .greet h1{font-weight:200;font-size:28px;letter-spacing:.4px}
+  .greet p{margin-top:6px;color:var(--text-soft);font-weight:300;font-size:13.5px}
+  .head-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .date-chip{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:999px;
+    background:var(--panel);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    border:1px solid var(--panel-border);font-size:12.5px;font-weight:400}
+  .date-chip .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .btn-black{background:var(--btn-bg);color:var(--btn-fg);border:none;padding:12px 24px;border-radius:999px;
+    font-size:12.5px;font-weight:500;letter-spacing:.4px;cursor:pointer;font-family:inherit;
+    transition:transform .22s cubic-bezier(.2,.7,.2,1),box-shadow .22s ease,background .3s ease,color .3s ease;
+    box-shadow:var(--btn-shadow)}
+  .btn-black:hover{transform:translateY(-2px);box-shadow:var(--btn-shadow-hover)}
+  .btn-black:active{transform:translateY(0) scale(.98)}
+
+  .theme-switch{display:inline-flex;align-items:center;gap:2px;padding:3px;border-radius:999px;
+    background:var(--seg-track);border:1px solid transparent;
+    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    transition:background .35s ease,border-color .35s ease}
+  .theme-opt{border:none;background:transparent;color:var(--text-soft);font-family:inherit;
+    font-size:11.5px;font-weight:400;letter-spacing:.2px;padding:6px 13px;border-radius:999px;
+    cursor:pointer;transition:background .25s ease,color .25s ease,box-shadow .25s ease}
+  .theme-opt:hover{color:var(--text)}
+  .theme-opt.active{background:var(--seg-thumb);color:var(--text);font-weight:500;
+    box-shadow:0 1px 3px rgba(0,0,0,.14),0 0 0 .5px rgba(0,0,0,.04)}
+
+  .progress-card{background:var(--panel);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+    border:1px solid var(--panel-border);border-radius:var(--radius);box-shadow:var(--shadow);
+    padding:34px 40px;margin-bottom:26px;display:grid;grid-template-columns:auto 1fr;gap:40px;align-items:center;
+    transition:background .35s ease,border-color .35s ease,box-shadow .35s ease}
+  .pct{font-weight:200;font-size:100px;line-height:.9;letter-spacing:-4px;
+    background:var(--pct-grad);
+    -webkit-background-clip:text;background-clip:text;color:transparent;font-variant-numeric:tabular-nums}
+  .pct small{font-size:30px;font-weight:300;margin-left:4px;-webkit-text-fill-color:var(--text-soft)}
+  .progress-info{min-width:0}
+  .progress-label{font-size:12.5px;color:var(--text-soft);font-weight:400;margin-bottom:16px;letter-spacing:.4px}
+  .seg-bar{display:flex;gap:6px;height:22px;background:var(--track);padding:6px;border-radius:999px;
+    transition:background .35s ease}
+  .seg{flex:1;border-radius:999px;background:var(--seg-off);
+    transition:background .55s cubic-bezier(.2,.7,.2,1)}
+  .seg.done{background:var(--accent)}
+  .seg.doing{background:var(--accent-dim)}
+  .stats{display:flex;gap:28px;margin-top:16px;font-weight:300;font-size:12.5px;color:var(--text-soft);flex-wrap:wrap}
+  .stats b{font-weight:500;color:var(--text);margin-right:5px;font-variant-numeric:tabular-nums}
+
+  .boards{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  @media(max-width:1000px){.boards{grid-template-columns:1fr}}
+  .col{background:var(--panel);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+    border:1px solid var(--panel-border);border-radius:var(--radius);box-shadow:var(--shadow);
+    padding:20px;min-height:440px;display:flex;flex-direction:column;
+    transition:transform .3s ease,box-shadow .3s ease,background .3s ease}
+  .col.drag-over{transform:translateY(-4px);box-shadow:0 22px 50px rgba(0,0,0,.18);background:var(--panel-hover)}
+  .col-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .col-title{font-weight:500;font-size:13.5px;letter-spacing:.4px;display:flex;align-items:center;gap:9px}
+  .col-title .tag{font-size:10.5px;font-weight:400;padding:3px 9px;border-radius:999px;
+    background:var(--chip);color:var(--text-soft);font-variant-numeric:tabular-nums}
+  .col[data-col="doing"] .col-title .tag{background:var(--accent);color:#fff}
+  .col[data-col="done"] .col-title .tag{background:transparent;border:1px solid var(--line);color:var(--text-faint)}
+  .icon-btn{width:26px;height:26px;border-radius:50%;border:none;cursor:pointer;
+    background:var(--chip);color:var(--text-soft);font-size:15px;line-height:1;
+    display:flex;align-items:center;justify-content:center;
+    transition:background .2s ease,color .2s ease,transform .2s ease;flex-shrink:0}
+  .icon-btn:hover{background:var(--chip-hover);color:var(--text);transform:rotate(90deg)}
+
+  .task-list{display:flex;flex-direction:column;gap:10px;flex:1;min-height:60px;list-style:none}
+  .task{background:var(--card);border-radius:var(--radius-sm);padding:15px 16px;
+    border:1px solid var(--card-border);box-shadow:var(--card-shadow);
+    cursor:grab;position:relative;
+    transition:transform .25s cubic-bezier(.2,.7,.2,1),box-shadow .25s ease,opacity .25s ease,background .35s ease,border-color .35s ease}
+  .task:hover{transform:translateY(-2px);box-shadow:var(--card-shadow-hover)}
+  .task.dragging{opacity:.35;transform:scale(.97);cursor:grabbing}
+
+  .col[data-col="doing"] .task{background:var(--accent);border-color:transparent;color:#fff;
+    box-shadow:var(--doing-shadow)}
+  .col[data-col="doing"] .task:hover{box-shadow:0 12px 30px rgba(0,122,255,.34)}
+  .col[data-col="doing"] .task .task-title{color:#fff}
+  .col[data-col="doing"] .task .meta{color:rgba(255,255,255,.75)}
+  .col[data-col="doing"] .task .acts button{background:rgba(255,255,255,.2);color:rgba(255,255,255,.9)}
+  .col[data-col="doing"] .task .acts button:hover{background:rgba(255,255,255,.34);color:#fff}
+
+  .col[data-col="done"] .task{background:var(--done-card);border-style:dashed;border-color:var(--done-border)}
+  .col[data-col="done"] .task .task-title{color:var(--text-faint);text-decoration:line-through}
+  .col[data-col="done"] .task .meta{color:var(--text-faint)}
+
+  .task .row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .task-title{font-size:13.5px;line-height:1.45;color:var(--text);word-break:break-word;flex:1}
+  .task .meta{font-size:10.5px;color:var(--text-soft);margin-top:7px;font-weight:400;letter-spacing:.2px}
+  .task .acts{display:flex;flex-direction:column;gap:5px;opacity:0;transition:opacity .2s ease}
+  .task:hover .acts,.task:focus-within .acts{opacity:1}
+  .task .acts button{width:22px;height:22px;border-radius:50%;border:none;cursor:pointer;font-size:11px;
+    line-height:1;display:flex;align-items:center;justify-content:center;
+    background:var(--chip);color:var(--text-soft);
+    transition:background .2s ease,color .2s ease}
+  .task .acts button:hover{background:var(--chip-hover);color:var(--text)}
+
+  .task .edit-input{display:none;width:100%;padding:7px 10px;border-radius:9px;
+    border:1px solid var(--line);background:var(--input-bg);color:var(--text);
+    font-size:13.5px;font-family:inherit;outline:none;box-shadow:0 0 0 3px var(--chip)}
+  .task.editing .task-title{display:none}
+  .task.editing .edit-input{display:block}
+
+  .add{margin-top:12px;width:100%;padding:11px;border-radius:999px;border:1px dashed var(--line);
+    background:transparent;color:var(--text-soft);font-size:12.5px;font-weight:400;
+    cursor:pointer;font-family:inherit;transition:all .2s ease}
+  .add:hover{background:var(--chip);border-color:var(--text-faint);color:var(--text)}
+
+  .input-row{display:flex;gap:7px;margin-top:10px;animation:slideDown .26s cubic-bezier(.2,.7,.2,1)}
+  .input-row input{flex:1;min-width:0;padding:11px 15px;border-radius:999px;border:1px solid var(--line);
+    background:var(--input-bg);color:var(--text);font-size:13px;font-family:inherit;outline:none;
+    transition:border-color .2s ease,box-shadow .2s ease}
+  .input-row input:focus{border-color:var(--text-faint);box-shadow:0 0 0 3px var(--chip)}
+  .input-row input::placeholder{color:var(--text-faint)}
+  .input-row button{padding:0 16px;border-radius:999px;border:none;background:var(--btn-bg);color:var(--btn-fg);
+    font-size:12.5px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .input-row button.ghost{background:var(--chip);color:var(--text);font-weight:400}
+
+  .empty{text-align:center;padding:34px 12px;color:var(--text-faint);font-size:12px;font-weight:300;
+    border:1px dashed var(--line);border-radius:var(--radius-sm)}
+
+  footer{margin-top:34px;text-align:center;color:var(--text-faint);font-size:10.5px;font-weight:300;letter-spacing:.6px}
+
+  @keyframes themeFade{from{opacity:.45}to{opacity:1}}
+  @keyframes slideDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+  @keyframes popIn{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:none}}
+  .task.new{animation:popIn .38s cubic-bezier(.2,.7,.2,1)}
+
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="greet">
+      <h1 id="greetText">Good Morning.</h1>
+      <p id="todayStr">—</p>
+    </div>
+    <div class="head-right">
+      <div class="theme-switch" role="group" aria-label="主题模式">
+        <button class="theme-opt" data-theme-set="light">日间</button>
+        <button class="theme-opt" data-theme-set="mist">暮色</button>
+        <button class="theme-opt" data-theme-set="dark">暗夜</button>
+      </div>
+      <span class="date-chip"><span class="dot"></span><span id="dateChip">—</span></span>
+      <button class="btn-black" id="globalAdd">+ 新任务</button>
+    </div>
+  </header>
+
+  <section class="progress-card">
+    <div><div class="pct" id="pct">0<small>%</small></div></div>
+    <div class="progress-info">
+      <div class="progress-label">今日进度 · TODAY'S PROGRESS</div>
+      <div class="seg-bar" id="segBar"></div>
+      <div class="stats">
+        <div><b id="sDone">0</b>已完成</div>
+        <div><b id="sDoing">0</b>进行中</div>
+        <div><b id="sTodo">0</b>待办</div>
+        <div><b id="sTotal">0</b>总计</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="boards">
+    <div class="col" data-col="todo">
+      <div class="col-head">
+        <div class="col-title">待办 <span class="tag" data-count="todo">0</span></div>
+        <button class="icon-btn" data-add="todo" title="添加到待办">+</button>
+      </div>
+      <ul class="task-list" data-list="todo"></ul>
+      <button class="add" data-add="todo">+ 添加任务</button>
+    </div>
+    <div class="col" data-col="doing">
+      <div class="col-head">
+        <div class="col-title">进行中 <span class="tag" data-count="doing">0</span></div>
+        <button class="icon-btn" data-add="doing" title="添加到进行中">+</button>
+      </div>
+      <ul class="task-list" data-list="doing"></ul>
+      <button class="add" data-add="doing">+ 添加任务</button>
+    </div>
+    <div class="col" data-col="done">
+      <div class="col-head">
+        <div class="col-title">已完成 <span class="tag" data-count="done">0</span></div>
+        <button class="icon-btn" data-add="done" title="添加到已完成">+</button>
+      </div>
+      <ul class="task-list" data-list="done"></ul>
+      <button class="add" data-add="done">+ 添加任务</button>
+    </div>
+  </section>
+
+  <footer>MADE WITH ♥ · 数据仅存于本地浏览器 · 双击卡片可编辑 · 按 N 快速新建</footer>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  var STORE_KEY = 'workbench.daily.v2';
+  var THEME_KEY = 'workbench.theme.v1';
+  var THEMES = ['light','mist','dark'];
+  var COLS = ['todo','doing','done'];
+  var NEXT = {todo:'doing', doing:'done', done:'todo'};
+  var MAX_SEG = 14;
+
+  function todayKey(){
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function uid(){
+    return Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-5);
+  }
+  function sampleData(){
+    var now = Date.now();
+    return {
+      todo:[
+        {id:uid(), title:'整理项目周报并发送团队', createdAt:now-3600000},
+        {id:uid(), title:'准备下午 3 点的产品评审材料', createdAt:now-3000000},
+        {id:uid(), title:'阅读《Design Systems》第三章', createdAt:now-1800000}
+      ],
+      doing:[
+        {id:uid(), title:'重构个人工作台的进度模块', createdAt:now-7200000}
+      ],
+      done:[
+        {id:uid(), title:'晨间 30 分钟轻跑', createdAt:now-10800000},
+        {id:uid(), title:'回复客户邮件并澄清需求', createdAt:now-9000000}
+      ]
+    };
+  }
+
+  function load(){
+    try{
+      var raw = localStorage.getItem(STORE_KEY);
+      if(!raw) return sampleData();
+      var obj = JSON.parse(raw);
+      if(!obj || typeof obj !== 'object') return sampleData();
+      if(obj.date !== todayKey()) return sampleData();
+      var out = {date:obj.date};
+      COLS.forEach(function(c){
+        out[c] = Array.isArray(obj[c]) ? obj[c].filter(function(t){
+          return t && typeof t.id === 'string' && typeof t.title === 'string';
+        }) : [];
+      });
+      return out;
+    }catch(e){
+      return sampleData();
+    }
+  }
+
+  var state = load();
+
+  function save(){
+    var payload = {date: todayKey()};
+    COLS.forEach(function(c){ payload[c] = state[c]; });
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify(payload)); }catch(e){}
+  }
+
+  (function initHeader(){
+    var d = new Date();
+    var week = ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()];
+    document.getElementById('dateChip').textContent =
+      d.getFullYear() + ' · ' + (d.getMonth()+1) + '月' + d.getDate() + '日 · ' + week;
+    document.getElementById('todayStr').textContent =
+      week + ' · ' + (d.getMonth()+1) + '月' + d.getDate() + '日 · 专注三件最重要的事';
+    var h = d.getHours();
+    var greet = h < 5 ? 'Good Night.' : h < 12 ? 'Good Morning.' : h < 18 ? 'Good Afternoon.' : 'Good Evening.';
+    document.getElementById('greetText').textContent = greet;
+  })();
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(ch){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+    });
+  }
+  function timeAgo(ts){
+    var diff = Math.floor((Date.now() - ts) / 1000);
+    if(diff < 60) return '刚刚创建';
+    if(diff < 3600) return Math.floor(diff/60) + ' 分钟前';
+    if(diff < 86400) return Math.floor(diff/3600) + ' 小时前';
+    return new Date(ts).toLocaleDateString('zh-CN');
+  }
+
+  function render(){
+    COLS.forEach(function(c){
+      var ul = document.querySelector('[data-list="' + c + '"]');
+      ul.innerHTML = '';
+      if(state[c].length === 0){
+        var li = document.createElement('li');
+        li.className = 'empty';
+        li.textContent = '暂无任务';
+        ul.appendChild(li);
+      }else{
+        state[c].forEach(function(t){ ul.appendChild(buildCard(t, c)); });
+      }
+      document.querySelector('[data-count="' + c + '"]').textContent = state[c].length;
+    });
+    updateProgress();
+  }
+
+  function buildCard(t, col){
+    var li = document.createElement('li');
+    li.className = 'task';
+    li.dataset.id = t.id;
+    li.dataset.col = col;
+    li.draggable = true;
+
+    var nextLabel = NEXT[col] === 'doing' ? '移至进行中' : NEXT[col] === 'done' ? '标记完成' : '移回待办';
+
+    li.innerHTML =
+      '<div class="row">' +
+        '<div class="task-title">' + escapeHtml(t.title) + '</div>' +
+        '<div class="acts">' +
+          '<button class="cycle" title="' + nextLabel + '">→</button>' +
+          '<button class="del" title="删除">✕</button>' +
+        '</div>' +
+      '</div>' +
+      '<input class="edit-input" type="text" value="' + escapeHtml(t.title) + '">' +
+      '<div class="meta">' + timeAgo(t.createdAt) + '</div>';
+
+    li.classList.add('new');
+    setTimeout(function(){ li.classList.remove('new'); }, 420);
+
+    li.addEventListener('dragstart', function(e){
+      li.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try{
+        e.dataTransfer.setData('text/plain', t.id);
+        e.dataTransfer.setData('text/x-col', col);
+      }catch(err){}
+    });
+    li.addEventListener('dragend', function(){ li.classList.remove('dragging'); });
+
+    li.querySelector('.del').addEventListener('click', function(e){
+      e.stopPropagation();
+      state[col] = state[col].filter(function(x){ return x.id !== t.id; });
+      save(); render();
+    });
+    li.querySelector('.cycle').addEventListener('click', function(e){
+      e.stopPropagation();
+      moveTask(t.id, col, NEXT[col]);
+    });
+
+    var input = li.querySelector('.edit-input');
+    var titleEl = li.querySelector('.task-title');
+    var committed = false;
+
+    function startEdit(){
+      if(li.classList.contains('editing')) return;
+      li.classList.add('editing');
+      input.value = t.title;
+      input.focus();
+      input.select();
+      committed = false;
+    }
+    function commitEdit(){
+      if(committed) return;
+      committed = true;
+      var v = input.value.trim();
+      if(v && v !== t.title){ t.title = v; save(); }
+      li.classList.remove('editing');
+      var idx = state[col].findIndex(function(x){ return x.id === t.id; });
+      if(idx > -1){
+        var fresh = buildCard(state[col][idx], col);
+        li.replaceWith(fresh);
+      }
+    }
+    function cancelEdit(){
+      committed = true;
+      li.classList.remove('editing');
+      input.value = t.title;
+    }
+
+    titleEl.addEventListener('dblclick', startEdit);
+    input.addEventListener('keydown', function(e){
+      if(e.key === 'Enter'){ e.preventDefault(); commitEdit(); }
+      else if(e.key === 'Escape'){ e.preventDefault(); cancelEdit(); }
+    });
+    input.addEventListener('blur', commitEdit);
+
+    return li;
+  }
+
+  function moveTask(id, from, to){
+    if(!from || !to || from === to) return;
+    var idx = state[from].findIndex(function(x){ return x.id === id; });
+    if(idx < 0) return;
+    var t = state[from].splice(idx, 1)[0];
+    state[to].push(t);
+    save(); render();
+  }
+
+  var animRaf = null;
+
+  function updateProgress(){
+    var total = COLS.reduce(function(s,c){ return s + state[c].length; }, 0);
+    var done = state.done.length;
+    var pct = total ? Math.round(done / total * 100) : 0;
+
+    animatePct(pct);
+
+    document.getElementById('sDone').textContent = done;
+    document.getElementById('sDoing').textContent = state.doing.length;
+    document.getElementById('sTodo').textContent = state.todo.length;
+    document.getElementById('sTotal').textContent = total;
+
+    var bar = document.getElementById('segBar');
+    bar.innerHTML = '';
+
+    if(total === 0){
+      for(var i = 0; i < MAX_SEG; i++){
+        var s0 = document.createElement('div');
+        s0.className = 'seg';
+        bar.appendChild(s0);
+      }
+      return;
+    }
+
+    var order = [];
+    state.done.forEach(function(){ order.push('done'); });
+    state.doing.forEach(function(){ order.push('doing'); });
+    state.todo.forEach(function(){ order.push('todo'); });
+
+    var count = Math.min(order.length, MAX_SEG);
+    for(var j = 0; j < count; j++){
+      var seg = document.createElement('div');
+      var type = order[j];
+      seg.className = 'seg' + (type === 'done' ? ' done' : type === 'doing' ? ' doing' : '');
+      bar.appendChild(seg);
+    }
+    if(order.length > MAX_SEG){
+      var extra = order.length - MAX_SEG;
+      bar.lastElementChild.style.flexGrow = String(1 + extra * 0.2);
+    }
+  }
+
+  function animatePct(target){
+    var el = document.getElementById('pct');
+    var small = el.querySelector('small');
+    if(!small){
+      small = document.createElement('small');
+      small.textContent = '%';
+    }
+    if(animRaf) cancelAnimationFrame(animRaf);
+
+    var startVal = parseInt(el.textContent, 10) || 0;
+    if(startVal === target){
+      el.textContent = target;
+      el.appendChild(small);
+      return;
+    }
+    var startTime = performance.now();
+    var dur = 620;
+
+    function tick(now){
+      var raw = Math.min(1, (now - startTime) / dur);
+      var ease = 1 - Math.pow(1 - raw, 3);
+      var v = Math.round(startVal + (target - startVal) * ease);
+      el.textContent = v;
+      el.appendChild(small);
+      if(raw < 1){
+        animRaf = requestAnimationFrame(tick);
+      }else{
+        animRaf = null;
+      }
+    }
+    animRaf = requestAnimationFrame(tick);
+  }
+
+  var dragId = null;
+  var dragFrom = null;
+
+  document.querySelectorAll('.col').forEach(function(col){
+    var list = col.querySelector('.task-list');
+    var colName = col.dataset.col;
+
+    list.addEventListener('dragstart', function(e){
+      var card = e.target.closest ? e.target.closest('.task') : null;
+      if(!card) return;
+      dragId = card.dataset.id;
+      dragFrom = col.dataset.col;
+    });
+    list.addEventListener('dragend', function(){
+      dragId = null;
+      dragFrom = null;
+    });
+
+    col.addEventListener('dragover', function(e){
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      col.classList.add('drag-over');
+    });
+    col.addEventListener('dragleave', function(e){
+      if(!col.contains(e.relatedTarget)) col.classList.remove('drag-over');
+    });
+    col.addEventListener('drop', function(e){
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      var id = dragId;
+      var from = dragFrom;
+      if(!id){
+        try{
+          id = e.dataTransfer.getData('text/plain');
+          from = e.dataTransfer.getData('text/x-col');
+        }catch(err){}
+      }
+      if(!id || !from) return;
+      moveTask(id, from, colName);
+    });
+  });
+
+  var openRow = null;
+
+  function closeInput(){
+    if(openRow){ openRow.remove(); openRow = null; }
+  }
+
+  function showInput(col){
+    if(openRow){
+      var sameCol = openRow.dataset.col === col;
+      closeInput();
+      if(sameCol) return;
+    }
+    var addBtn = document.querySelector('.col[data-col="' + col + '"] .add');
+    var row = document.createElement('div');
+    row.className = 'input-row';
+    row.dataset.col = col;
+    row.innerHTML =
+      '<input type="text" placeholder="输入任务，回车添加…" maxlength="120">' +
+      '<button class="ghost" type="button">取消</button>' +
+      '<button type="button" class="ok">添加</button>';
+
+    addBtn.parentElement.insertBefore(row, addBtn);
+    openRow = row;
+
+    var input = row.querySelector('input');
+    var ok = row.querySelector('.ok');
+
+    requestAnimationFrame(function(){ input.focus(); });
+
+    function submit(){
+      var v = input.value.trim();
+      if(v){
+        state[col].push({id:uid(), title:v, createdAt:Date.now()});
+        save(); render();
+      }
+      closeInput();
+    }
+
+    ok.addEventListener('click', submit);
+    row.querySelector('.ghost').addEventListener('click', closeInput);
+    input.addEventListener('keydown', function(e){
+      if(e.key === 'Enter'){ e.preventDefault(); submit(); }
+      else if(e.key === 'Escape'){ e.preventDefault(); closeInput(); }
+    });
+  }
+
+  document.querySelectorAll('[data-add]').forEach(function(btn){
+    btn.addEventListener('click', function(){ showInput(btn.dataset.add); });
+  });
+  document.getElementById('globalAdd').addEventListener('click', function(){ showInput('todo'); });
+
+  document.addEventListener('keydown', function(e){
+    var tag = (e.target.tagName || '').toLowerCase();
+    var typing = tag === 'input' || tag === 'textarea' || e.target.isContentEditable;
+    if(typing) return;
+    if(e.key === 'n' || e.key === 'N'){
+      e.preventDefault();
+      showInput('todo');
+    }
+  });
+
+  function applyTheme(t){
+    if(THEMES.indexOf(t) < 0) t = 'mist';
+    var root = document.documentElement;
+    root.classList.remove('theme-light','theme-mist','theme-dark');
+    root.classList.add('theme-' + t);
+    root.setAttribute('data-theme', t);
+    document.querySelectorAll('.theme-opt').forEach(function(b){
+      b.classList.toggle('active', b.dataset.themeSet === t);
+    });
+    try{ localStorage.setItem(THEME_KEY, t); }catch(e){}
+  }
+
+  document.querySelectorAll('.theme-opt').forEach(function(b){
+    b.addEventListener('click', function(){
+      var next = b.dataset.themeSet;
+      if(document.documentElement.classList.contains('theme-' + next)) return;
+      applyTheme(next);
+      document.body.classList.remove('switching');
+      void document.body.offsetWidth;
+      document.body.classList.add('switching');
+    });
+  });
+
+  var storedTheme = null;
+  try{ storedTheme = localStorage.getItem(THEME_KEY); }catch(e){}
+  applyTheme(storedTheme || window.__initialTheme || 'mist');
+
+  render();
+
+  window.addEventListener('storage', function(e){
+    if(e.key !== STORE_KEY) return;
+    state = load();
+    render();
+  });
+})();
+</script>
+</body>
+</html>
