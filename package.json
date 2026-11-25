@@ -1,9 +1,9 @@
 {
   "name": "pomo-workbench",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "个人工作台 · 今日三列任务看板",
   "main": "electron/main.js",
-  "author": "方城县破默网络科技工作室",
+  "author": "方城县破默网络科技工作室 <1316737309@qq.com>",
   "license": "MIT",
   "private": true,
   "scripts": {
@@ -19,6 +19,7 @@
   "build": {
     "appId": "com.pomo.workbench",
     "productName": "Workbench",
+    "copyright": "Copyright © 2026 李德胜 · 方城县破默网络科技工作室",
     "artifactName": "${productName}-${version}-${arch}.${ext}",
     "directories": {
       "output": "release"
@@ -26,6 +27,7 @@
     "files": [
       "electron/**/*",
       "index.html",
+      "widget.html",
       "package.json"
     ],
     "win": {
