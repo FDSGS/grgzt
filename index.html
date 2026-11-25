@@ -165,7 +165,10 @@
     --menu-shadow:0 22px 54px rgba(0,0,0,.6),0 2px 8px rgba(0,0,0,.4);
     --titlebar-fg:rgba(237,241,238,.5);
   }
-  html,body{height:100%;overflow:hidden}
+  html,body{height:100%;overflow:hidden;
+    -webkit-user-select:none;user-select:none;cursor:default}
+  input,textarea{-webkit-user-select:text;user-select:text}
+  img{-webkit-user-drag:none;user-drag:none}
   body{
     height:100vh;
     background:var(--bg);
@@ -309,10 +312,14 @@
   .col[data-col="done"] .task .task-title{color:var(--text-faint);text-decoration:line-through}
   .col[data-col="done"] .task .meta{color:var(--text-faint)}
 
-  .task .row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
-  .task-title{font-size:13.5px;line-height:1.45;color:var(--text);word-break:break-word;flex:1}
+  .task .task-body{display:flex;align-items:flex-start;gap:10px}
+  .task .task-content{flex:1 1 auto;min-width:0}
+  .task-title{font-size:13.5px;line-height:1.45;color:var(--text);word-break:break-word;
+    flex:1;min-width:0;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;
+    overflow:hidden;cursor:pointer}
   .task .meta{font-size:10.5px;color:var(--text-soft);margin-top:7px;font-weight:400;letter-spacing:.2px}
-  .task .acts{display:flex;flex-direction:column;gap:5px;opacity:0;transition:opacity .2s ease}
+  .task .acts{display:flex;flex-direction:column;gap:5px;flex:0 0 auto;
+    opacity:0;transition:opacity .2s ease}
   .task:hover .acts,.task:focus-within .acts{opacity:1}
   .task .acts button{width:22px;height:22px;border-radius:50%;border:none;cursor:pointer;font-size:11px;
     line-height:1;display:flex;align-items:center;justify-content:center;
@@ -321,36 +328,103 @@
   .task .acts button svg{width:12px;height:12px;display:block}
   .task .acts button:hover{background:var(--chip-hover);color:var(--text)}
 
-  .task .edit-input{display:none;width:100%;padding:7px 10px;border-radius:9px;
-    border:1px solid var(--line);background:var(--input-bg);color:var(--text);
-    font-size:13.5px;font-family:inherit;outline:none;box-shadow:0 0 0 3px var(--chip)}
-  .task.editing .task-title{display:none}
-  .task.editing .edit-input{display:block}
-
   .add{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:12px;width:100%;padding:11px;border-radius:999px;border:1px dashed var(--line);
     background:transparent;color:var(--text-soft);font-size:12.5px;font-weight:400;
     cursor:pointer;font-family:inherit;transition:all .2s ease}
   .add svg{width:12px;height:12px;display:block}
   .add:hover{background:var(--chip);border-color:var(--text-faint);color:var(--text)}
 
-  .input-row{display:flex;gap:7px;margin-top:10px;animation:slideDown .26s cubic-bezier(.2,.7,.2,1)}
-  .input-row input{flex:1;min-width:0;padding:11px 15px;border-radius:999px;border:1px solid var(--line);
-    background:var(--input-bg);color:var(--text);font-size:13px;font-family:inherit;outline:none;
-    transition:border-color .2s ease,box-shadow .2s ease}
-  .input-row input:focus{border-color:var(--text-faint);box-shadow:0 0 0 3px var(--chip)}
-  .input-row input::placeholder{color:var(--text-faint)}
-  .input-row button{padding:0 16px;border-radius:999px;border:none;background:var(--btn-bg);color:var(--btn-fg);
-    font-size:12.5px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap}
-  .input-row button.ghost{background:var(--chip);color:var(--text);font-weight:400}
+  /* 新建 / 编辑任务弹框 */
+  .viewer-box.editor-box{width:min(520px,100%);max-height:76vh}
+  .editor-input{display:block;width:auto;min-height:150px;max-height:44vh;margin:2px 20px 0;
+    padding:12px 14px;border-radius:12px;border:1px solid var(--line);
+    background:var(--input-bg);color:var(--text);
+    font-family:inherit;font-size:13.5px;line-height:1.7;resize:none;outline:none;
+    transition:border-color .18s ease,box-shadow .18s ease;
+    scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+  .editor-input:focus{border-color:var(--text-faint);box-shadow:0 0 0 3px var(--chip)}
+  .editor-input::placeholder{color:var(--text-faint)}
+  .editor-input::-webkit-scrollbar{width:6px}
+  .editor-input::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+  .editor-foot{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:12px 20px 18px}
+  .editor-hint{margin-right:auto;font-size:10.5px;color:var(--text-faint);letter-spacing:.3px}
+  .editor-foot button{padding:8px 16px;border-radius:999px;border:none;font-family:inherit;
+    font-size:12.5px;cursor:pointer;transition:background .16s ease,box-shadow .16s ease}
+  .editor-foot .ghost{background:var(--chip);color:var(--text)}
+  .editor-foot .ghost:hover{background:var(--chip-hover)}
+  .editor-foot .primary{background:var(--btn-bg);color:var(--btn-fg);box-shadow:var(--btn-shadow)}
+  .editor-foot .primary:hover{box-shadow:var(--btn-shadow-hover)}
+  .editor-foot .danger{background:#E5484D;color:#fff}
+  .editor-foot .danger:hover{filter:brightness(1.08)}
+
+  /* 删除确认弹框 */
+  .viewer-box.confirm-box{width:min(390px,100%)}
+  .confirm-body{padding:2px 20px 16px;font-size:13px;line-height:1.7;color:var(--text-soft);
+    max-height:30vh;overflow-y:auto;word-break:break-word;
+    scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+  .confirm-body::-webkit-scrollbar{width:6px}
+  .confirm-body::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
 
   .empty{text-align:center;padding:34px 12px;color:var(--text-faint);font-size:12px;font-weight:300;
     border:1px dashed var(--line);border-radius:var(--radius-sm)}
+
+  /* 任务全文弹框 */
+  .viewer{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;
+    padding:40px 24px;background:rgba(10,14,12,.32);
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    animation:themeFade .16s ease}
+  .viewer[hidden]{display:none}
+  .viewer-box{width:min(560px,100%);max-height:72vh;display:flex;flex-direction:column;
+    background:var(--menu-bg);border:1px solid var(--menu-border);border-radius:18px;
+    box-shadow:var(--menu-shadow);overflow:hidden;
+    animation:popIn .22s cubic-bezier(.2,.7,.2,1)}
+  .viewer-head{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:14px 14px 10px 20px}
+  .viewer-head .vtitle{font-size:11.5px;letter-spacing:.6px;color:var(--text-faint)}
+  .viewer-close{width:30px;height:30px;border-radius:50%;border:none;background:var(--chip);
+    color:var(--text-soft);display:flex;align-items:center;justify-content:center;
+    cursor:pointer;transition:background .16s ease,color .16s ease;flex:0 0 auto}
+  .viewer-close:hover{background:var(--chip-hover);color:var(--text)}
+  .viewer-close svg{width:14px;height:14px;display:block}
+  .viewer-body{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;
+    padding:2px 20px 18px;font-size:14px;line-height:1.75;color:var(--text);
+    white-space:pre-wrap;word-break:break-word;
+    scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+  .viewer-body::-webkit-scrollbar{width:6px}
+  .viewer-body::-webkit-scrollbar-track{background:transparent}
+  .viewer-body::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+  .viewer-body::-webkit-scrollbar-thumb:hover{background:var(--text-faint)}
+  .viewer-meta{flex:0 0 auto;padding:0 20px 16px;font-size:10.5px;color:var(--text-faint);letter-spacing:.3px}
+
+  /* 关于 */
+  .about-box{width:min(430px,100%);max-height:76vh}
+  .about-body{flex:1 1 auto;min-height:0;overflow-y:auto;padding:4px 20px 20px;
+    scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+  .about-body::-webkit-scrollbar{width:6px}
+  .about-body::-webkit-scrollbar-track{background:transparent}
+  .about-body::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+  .about-brand{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+  .about-logo{width:44px;height:44px;border-radius:12px;object-fit:cover;display:block;
+    box-shadow:0 2px 8px rgba(0,0,0,.16)}
+  .about-name{font-size:15px;font-weight:500;letter-spacing:.4px;color:var(--text)}
+  .about-ver{font-size:11px;color:var(--text-faint);margin-top:3px;letter-spacing:.4px}
+  .about-rows{display:flex;flex-direction:column;gap:8px}
+  .about-row{display:flex;align-items:center;gap:10px;padding:9px 8px 9px 12px;border-radius:11px;background:var(--chip)}
+  .about-row .k{font-size:10.5px;color:var(--text-faint);letter-spacing:.5px;flex:0 0 30px}
+  .about-row .v{font-size:12.5px;color:var(--text);flex:1 1 auto;min-width:0;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .copy-btn{width:26px;height:26px;border-radius:50%;border:none;background:transparent;
+    color:var(--text-faint);display:flex;align-items:center;justify-content:center;
+    cursor:pointer;flex:0 0 auto;transition:background .16s ease,color .16s ease}
+  .copy-btn:hover{background:var(--chip-hover);color:var(--text)}
+  .copy-btn.copied{color:var(--accent)}
+  .copy-btn svg{width:13px;height:13px;display:block}
+  .about-note{margin-top:14px;font-size:11px;line-height:1.6;color:var(--text-faint)}
 
   footer{flex:0 0 auto;margin-top:14px;text-align:center;color:var(--text-faint);font-size:10.5px;font-weight:300;letter-spacing:.6px}
 
   @keyframes themeFade{from{opacity:.45}to{opacity:1}}
   @keyframes menuIn{from{opacity:0;transform:translateY(-6px) scale(.985)}to{opacity:1;transform:none}}
-  @keyframes slideDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
   @keyframes popIn{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:none}}
   .task.new{animation:popIn .38s cubic-bezier(.2,.7,.2,1)}
 
@@ -433,8 +507,85 @@
     </div>
   </section>
 
-  <footer>数据仅存于本机 · 双击卡片可编辑 · 按 N 快速新建</footer>
+  <footer>数据仅存于本机 · 眼球看全文 · 铅笔编辑 · 按 N 快速新建</footer>
 </div>
+  </div>
+</div>
+
+<div class="viewer" id="viewer" hidden>
+  <div class="viewer-box" role="dialog" aria-modal="true" aria-label="任务内容">
+    <div class="viewer-head">
+      <span class="vtitle" id="viewerCol">任务内容</span>
+      <button class="viewer-close" id="viewerClose" title="关闭"></button>
+    </div>
+    <div class="viewer-body" id="viewerBody"></div>
+    <div class="viewer-meta" id="viewerMeta"></div>
+  </div>
+</div>
+
+<div class="viewer" id="about" hidden>
+  <div class="viewer-box about-box" role="dialog" aria-modal="true" aria-label="关于个人工作台">
+    <div class="viewer-head">
+      <span class="vtitle">关于</span>
+      <button class="viewer-close" id="aboutClose" title="关闭"></button>
+    </div>
+    <div class="about-body">
+      <div class="about-brand">
+        <img class="about-logo" src="assets/logo.png" alt="">
+        <div>
+          <div class="about-name">个人工作台</div>
+          <div class="about-ver" id="aboutVer">版本 —</div>
+        </div>
+      </div>
+      <div class="about-rows">
+        <div class="about-row" data-copy="李德胜 · 方城县破默网络科技工作室">
+          <span class="k">作者</span>
+          <span class="v">李德胜 · 方城县破默网络科技工作室</span>
+          <button class="copy-btn" title="复制作者信息"></button>
+        </div>
+        <div class="about-row" data-copy="18625698675">
+          <span class="k">微信</span>
+          <span class="v">18625698675</span>
+          <button class="copy-btn" title="复制微信号"></button>
+        </div>
+        <div class="about-row" data-copy="1316737309@qq.com">
+          <span class="k">邮箱</span>
+          <span class="v">1316737309@qq.com</span>
+          <button class="copy-btn" title="复制邮箱"></button>
+        </div>
+      </div>
+      <p class="about-note">数据保存在本机，不会上传到任何服务器。</p>
+    </div>
+  </div>
+</div>
+
+<div class="viewer" id="editor" hidden>
+  <div class="viewer-box editor-box" role="dialog" aria-modal="true" aria-label="编辑任务">
+    <div class="viewer-head">
+      <span class="vtitle" id="editorTitle">新建任务</span>
+      <button class="viewer-close" id="editorClose" title="关闭"></button>
+    </div>
+    <textarea class="editor-input" id="editorInput" placeholder="输入任务内容，可换行…"></textarea>
+    <div class="editor-foot">
+      <span class="editor-hint">Ctrl + Enter 保存</span>
+      <button class="ghost" id="editorCancel" type="button">取消</button>
+      <button class="primary" id="editorSave" type="button">添加</button>
+    </div>
+  </div>
+</div>
+
+<div class="viewer" id="confirm" hidden>
+  <div class="viewer-box confirm-box" role="dialog" aria-modal="true" aria-label="确认删除">
+    <div class="viewer-head">
+      <span class="vtitle">删除任务</span>
+      <button class="viewer-close" id="confirmClose" title="关闭"></button>
+    </div>
+    <div class="confirm-body" id="confirmBody"></div>
+    <div class="editor-foot">
+      <span class="editor-hint"></span>
+      <button class="ghost" id="confirmCancel" type="button">取消</button>
+      <button class="danger" id="confirmOk" type="button">删除</button>
+    </div>
   </div>
 </div>
 
@@ -456,7 +607,11 @@
     x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
     arrowRight:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>',
     square:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>',
-    restore:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>'
+    restore:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>',
+    copy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>',
+    pencil:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>',
+    eye:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>',
+    check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>'
   };
 
   function todayKey(){
@@ -536,6 +691,78 @@
     return new Date(ts).toLocaleDateString('zh-CN');
   }
 
+  /* ---------- 任务全文弹框 ---------- */
+  var viewer = document.getElementById('viewer');
+  var viewerBody = document.getElementById('viewerBody');
+  var viewerMeta = document.getElementById('viewerMeta');
+  var viewerCol = document.getElementById('viewerCol');
+  var COL_LABEL = {todo:'待办 · 任务内容', doing:'进行中 · 任务内容', done:'已完成 · 任务内容'};
+  var COL_NAME = {todo:'待办', doing:'进行中', done:'已完成'};
+  document.getElementById('viewerClose').innerHTML = ICON_SVG.x;
+
+  function openViewer(t, col){
+    viewerBody.textContent = t.title;
+    viewerCol.textContent = COL_LABEL[col] || '任务内容';
+    viewerMeta.textContent = timeAgo(t.createdAt) + ' · 共 ' + t.title.length + ' 字';
+    viewer.hidden = false;
+    viewerBody.scrollTop = 0;
+  }
+  function closeViewer(){ viewer.hidden = true; }
+
+  document.getElementById('viewerClose').addEventListener('click', closeViewer);
+  viewer.addEventListener('click', function(e){ if(e.target === viewer) closeViewer(); });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && !viewer.hidden){ e.preventDefault(); closeViewer(); }
+  });
+
+  /* ---------- 关于 ---------- */
+  var aboutEl = document.getElementById('about');
+  var aboutVer = document.getElementById('aboutVer');
+  document.getElementById('aboutClose').innerHTML = ICON_SVG.x;
+
+  function openAbout(info){
+    if(info && info.version) aboutVer.textContent = '版本 ' + info.version;
+    aboutEl.hidden = false;
+  }
+  function closeAbout(){ aboutEl.hidden = true; }
+
+  document.getElementById('aboutClose').addEventListener('click', closeAbout);
+  aboutEl.addEventListener('click', function(e){ if(e.target === aboutEl) closeAbout(); });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && !aboutEl.hidden){ e.preventDefault(); closeAbout(); }
+  });
+
+  aboutEl.querySelectorAll('.about-row').forEach(function(row){
+    var btn = row.querySelector('.copy-btn');
+    btn.innerHTML = ICON_SVG.copy;
+    var timer = null;
+    btn.addEventListener('click', function(){
+      var text = row.dataset.copy || '';
+      function done(){
+        btn.innerHTML = ICON_SVG.check;
+        btn.classList.add('copied');
+        btn.title = '已复制';
+        clearTimeout(timer);
+        timer = setTimeout(function(){
+          btn.innerHTML = ICON_SVG.copy;
+          btn.classList.remove('copied');
+          btn.title = '复制';
+        }, 1200);
+      }
+      if(window.appBridge && window.appBridge.copyText){
+        window.appBridge.copyText(text).then(done, done);
+      }else if(navigator.clipboard){
+        navigator.clipboard.writeText(text).then(done, done);
+      }else{
+        done();
+      }
+    });
+  });
+
+  if(window.appBridge && window.appBridge.onAbout){
+    window.appBridge.onAbout(function(info){ openAbout(info); });
+  }
+
   function render(){
     COLS.forEach(function(c){
       var ul = document.querySelector('[data-list="' + c + '"]');
@@ -563,15 +790,18 @@
     var nextLabel = NEXT[col] === 'doing' ? '移至进行中' : NEXT[col] === 'done' ? '标记完成' : '移回待办';
 
     li.innerHTML =
-      '<div class="row">' +
-        '<div class="task-title">' + escapeHtml(t.title) + '</div>' +
+      '<div class="task-body">' +
+        '<div class="task-content">' +
+          '<div class="task-title">' + escapeHtml(t.title) + '</div>' +
+          '<div class="meta">' + timeAgo(t.createdAt) + '</div>' +
+        '</div>' +
         '<div class="acts">' +
           '<button class="cycle" title="' + nextLabel + '">' + ICON_SVG.arrowRight + '</button>' +
           '<button class="del" title="删除">' + ICON_SVG.x + '</button>' +
+          '<button class="edit" title="编辑任务">' + ICON_SVG.pencil + '</button>' +
+          '<button class="view" title="预览内容">' + ICON_SVG.eye + '</button>' +
         '</div>' +
-      '</div>' +
-      '<input class="edit-input" type="text" value="' + escapeHtml(t.title) + '">' +
-      '<div class="meta">' + timeAgo(t.createdAt) + '</div>';
+      '</div>';
 
     li.classList.add('new');
     setTimeout(function(){ li.classList.remove('new'); }, 420);
@@ -588,50 +818,26 @@
 
     li.querySelector('.del').addEventListener('click', function(e){
       e.stopPropagation();
-      state[col] = state[col].filter(function(x){ return x.id !== t.id; });
-      save(); render();
+      askConfirm('确定删除「' + t.title + '」吗？删除后不可恢复。', function(){
+        state[col] = state[col].filter(function(x){ return x.id !== t.id; });
+        save(); render();
+      });
     });
     li.querySelector('.cycle').addEventListener('click', function(e){
       e.stopPropagation();
       moveTask(t.id, col, NEXT[col]);
     });
-
-    var input = li.querySelector('.edit-input');
-    var titleEl = li.querySelector('.task-title');
-    var committed = false;
-
-    function startEdit(){
-      if(li.classList.contains('editing')) return;
-      li.classList.add('editing');
-      input.value = t.title;
-      input.focus();
-      input.select();
-      committed = false;
-    }
-    function commitEdit(){
-      if(committed) return;
-      committed = true;
-      var v = input.value.trim();
-      if(v && v !== t.title){ t.title = v; save(); }
-      li.classList.remove('editing');
-      var idx = state[col].findIndex(function(x){ return x.id === t.id; });
-      if(idx > -1){
-        var fresh = buildCard(state[col][idx], col);
-        li.replaceWith(fresh);
-      }
-    }
-    function cancelEdit(){
-      committed = true;
-      li.classList.remove('editing');
-      input.value = t.title;
-    }
-
-    titleEl.addEventListener('dblclick', startEdit);
-    input.addEventListener('keydown', function(e){
-      if(e.key === 'Enter'){ e.preventDefault(); commitEdit(); }
-      else if(e.key === 'Escape'){ e.preventDefault(); cancelEdit(); }
+    li.querySelector('.edit').addEventListener('click', function(e){
+      e.stopPropagation();
+      openEditor({type:'edit', col:col, id:t.id});
     });
-    input.addEventListener('blur', commitEdit);
+    li.querySelector('.view').addEventListener('click', function(e){
+      e.stopPropagation();
+      openViewer(t, col);
+    });
+
+    var titleEl = li.querySelector('.task-title');
+    titleEl.addEventListener('click', function(){ openViewer(t, col); });
 
     return li;
   }
@@ -764,51 +970,100 @@
     });
   });
 
-  var openRow = null;
+  /* ---------- 新建 / 编辑任务弹框 ---------- */
+  var editorEl = document.getElementById('editor');
+  var editorInput = document.getElementById('editorInput');
+  var editorTitle = document.getElementById('editorTitle');
+  var editorSave = document.getElementById('editorSave');
+  var editorMode = null;
 
-  function closeInput(){
-    if(openRow){ openRow.remove(); openRow = null; }
-  }
+  document.getElementById('editorClose').innerHTML = ICON_SVG.x;
 
-  function showInput(col){
-    if(openRow){
-      var sameCol = openRow.dataset.col === col;
-      closeInput();
-      if(sameCol) return;
+  function openEditor(mode){
+    editorMode = mode;
+    if(mode.type === 'edit'){
+      var t = state[mode.col].find(function(x){ return x.id === mode.id; });
+      if(!t) return;
+      editorTitle.textContent = '编辑任务';
+      editorInput.value = t.title;
+      editorSave.textContent = '保存';
+    }else{
+      editorTitle.textContent = '新建任务 · ' + (COL_NAME[mode.col] || '');
+      editorInput.value = '';
+      editorSave.textContent = '添加';
     }
-    var addBtn = document.querySelector('.col[data-col="' + col + '"] .add');
-    var row = document.createElement('div');
-    row.className = 'input-row';
-    row.dataset.col = col;
-    row.innerHTML =
-      '<input type="text" placeholder="输入任务，回车添加…" maxlength="120">' +
-      '<button class="ghost" type="button">取消</button>' +
-      '<button type="button" class="ok">添加</button>';
-
-    addBtn.parentElement.insertBefore(row, addBtn);
-    openRow = row;
-
-    var input = row.querySelector('input');
-    var ok = row.querySelector('.ok');
-
-    requestAnimationFrame(function(){ input.focus(); });
-
-    function submit(){
-      var v = input.value.trim();
-      if(v){
-        state[col].push({id:uid(), title:v, createdAt:Date.now()});
-        save(); render();
-      }
-      closeInput();
-    }
-
-    ok.addEventListener('click', submit);
-    row.querySelector('.ghost').addEventListener('click', closeInput);
-    input.addEventListener('keydown', function(e){
-      if(e.key === 'Enter'){ e.preventDefault(); submit(); }
-      else if(e.key === 'Escape'){ e.preventDefault(); closeInput(); }
+    editorEl.hidden = false;
+    requestAnimationFrame(function(){
+      editorInput.focus();
+      if(mode.type === 'edit') editorInput.select();
+      else editorInput.setSelectionRange(0, 0);
     });
   }
+
+  function closeEditor(){
+    editorEl.hidden = true;
+    editorMode = null;
+  }
+
+  function submitEditor(){
+    if(!editorMode) return;
+    var v = editorInput.value.trim();
+    if(!v){ editorInput.focus(); return; }
+    if(editorMode.type === 'edit'){
+      var t = state[editorMode.col].find(function(x){ return x.id === editorMode.id; });
+      if(t && v !== t.title){ t.title = v; save(); }
+    }else{
+      state[editorMode.col].push({id:uid(), title:v, createdAt:Date.now()});
+      save();
+    }
+    closeEditor();
+    render();
+  }
+
+  document.getElementById('editorClose').addEventListener('click', closeEditor);
+  document.getElementById('editorCancel').addEventListener('click', closeEditor);
+  editorSave.addEventListener('click', submitEditor);
+  editorEl.addEventListener('click', function(e){ if(e.target === editorEl) closeEditor(); });
+  editorInput.addEventListener('keydown', function(e){
+    if(e.key === 'Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); submitEditor(); }
+    else if(e.key === 'Escape'){ e.preventDefault(); closeEditor(); }
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && !editorEl.hidden){ e.preventDefault(); closeEditor(); }
+  });
+
+  function showInput(col){
+    openEditor({type:'create', col:col});
+  }
+
+  /* ---------- 删除确认弹框 ---------- */
+  var confirmEl = document.getElementById('confirm');
+  var confirmBody = document.getElementById('confirmBody');
+  var confirmAction = null;
+
+  document.getElementById('confirmClose').innerHTML = ICON_SVG.x;
+
+  function askConfirm(message, onOk){
+    confirmBody.textContent = message;
+    confirmAction = onOk;
+    confirmEl.hidden = false;
+  }
+  function closeConfirm(){
+    confirmEl.hidden = true;
+    confirmAction = null;
+  }
+
+  document.getElementById('confirmOk').addEventListener('click', function(){
+    var fn = confirmAction;
+    closeConfirm();
+    if(fn) fn();
+  });
+  document.getElementById('confirmCancel').addEventListener('click', closeConfirm);
+  document.getElementById('confirmClose').addEventListener('click', closeConfirm);
+  confirmEl.addEventListener('click', function(e){ if(e.target === confirmEl) closeConfirm(); });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && !confirmEl.hidden){ e.preventDefault(); closeConfirm(); }
+  });
 
   document.querySelectorAll('[data-add]').forEach(function(btn){
     btn.addEventListener('click', function(){ showInput(btn.dataset.add); });

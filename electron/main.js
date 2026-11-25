@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, dialog, shell, screen } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, clipboard, shell, screen } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 
@@ -121,22 +121,11 @@ function toggleWidget() {
 
 function showAbout() {
   const win = getWin();
-  const opts = {
-    type: 'info',
-    title: '关于个人工作台',
-    message: '个人工作台',
-    icon: logoPath,
-    detail:
-      '作者：李德胜 · 方城县破默网络科技工作室\n' +
-      '微信：18625698675\n' +
-      '邮箱：1316737309@qq.com\n\n' +
-      '版本 ' + app.getVersion() + '\n' +
-      'Electron ' + process.versions.electron + ' · Chromium ' + process.versions.chrome + '\n\n' +
-      '数据保存在本机，不会上传到任何服务器。',
-    buttons: ['好']
-  };
-  if (win) dialog.showMessageBox(win, opts);
-  else dialog.showMessageBox(opts);
+  if (!win || win.isDestroyed()) return;
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+  win.webContents.send('about:open', { version: app.getVersion() });
 }
 
 // 渲染层菜单 / 标题栏按钮统一入口
@@ -298,6 +287,11 @@ function createWindow() {
 
 ipcMain.handle('win:action', (_e, action) => {
   runAction(action);
+});
+
+ipcMain.handle('clipboard:write', (_e, text) => {
+  clipboard.writeText(String(text || ''));
+  return true;
 });
 
 ipcMain.handle('win:state', (e) => {

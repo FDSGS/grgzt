@@ -60,7 +60,10 @@
     --btn-bg:#EDF1EE;
     --btn-fg:#0B0F0D;
   }
-  html,body{height:100%;background:transparent;overflow:hidden}
+  html,body{height:100%;background:transparent;overflow:hidden;
+    -webkit-user-select:none;user-select:none;cursor:default}
+  input,textarea{-webkit-user-select:text;user-select:text}
+  img{-webkit-user-drag:none}
   body{-webkit-user-select:none;user-select:none}
   .widget{
     position:relative;

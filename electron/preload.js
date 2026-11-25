@@ -12,5 +12,11 @@ contextBridge.exposeInMainWorld('appBridge', {
   },
   onWindowState(callback) {
     ipcRenderer.on('win:state', (_event, payload) => callback(payload));
+  },
+  onAbout(callback) {
+    ipcRenderer.on('about:open', (_event, payload) => callback(payload));
+  },
+  copyText(text) {
+    return ipcRenderer.invoke('clipboard:write', text);
   }
 });
