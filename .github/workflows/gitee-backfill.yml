@@ -14,16 +14,24 @@ on:
 permissions:
   contents: read
 
+env:
+  RAW_TAG: ${{ inputs.tag_name || github.ref_name }}
+
 jobs:
   backfill:
     name: 从 GitHub Release 转存到码云
     runs-on: ubuntu-latest
-    env:
-      TAG_NAME: ${{ inputs.tag_name || github.ref_name }}
     steps:
       - name: 解析补传版本
         shell: bash
-        run: echo "TAG_NAME=${TAG_NAME#backfill-}" >> "$GITHUB_ENV"
+        run: |
+          set -euo pipefail
+          TAG_NAME=$(printf '%s' "${RAW_TAG}" | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || true)
+          if [ -z "$TAG_NAME" ]; then
+            echo "::error::无法从 ${RAW_TAG} 解析版本标签"
+            exit 1
+          fi
+          echo "TAG_NAME=${TAG_NAME}" >> "$GITHUB_ENV"
 
       - name: 下载 GitHub Release 中的安装包
         env:
@@ -51,6 +59,8 @@ jobs:
           fi
 
           API="https://gitee.com/api/v5/repos/limingtiana/grgzt"
+          LIMIT=104857600
+
           STATUS=$(curl -sS -o gitee-release.json -w '%{http_code}' \
             "${API}/releases/tags/${TAG_NAME}?access_token=${GITEE_TOKEN}")
 
@@ -69,33 +79,58 @@ jobs:
               --output gitee-release.json
             RELEASE_ID=$(python3 -c 'import json; print(json.load(open("gitee-release.json"))["id"])')
           fi
-          PIDS=()
+          echo "码云 Release id：${RELEASE_ID}"
+
+          curl -sS -f "${API}/releases/${RELEASE_ID}?access_token=${GITEE_TOKEN}" \
+            -o gitee-assets.json || echo '{}' > gitee-assets.json
+          EXISTING=$(python3 -c 'import json; data=json.load(open("gitee-assets.json")); print("\n".join(a.get("name", "") for a in (data.get("assets") or [])))')
+
+          FAILED=0
           while IFS= read -r -d '' FILE; do
-            (
-              echo "正在上传：$(basename "$FILE")"
-              if curl --fail --silent --show-error --http1.1 \
+            NAME=$(basename "$FILE")
+            SIZE=$(stat -c %s "$FILE")
+
+            if printf '%s\n' "$EXISTING" | grep -Fxq "$NAME"; then
+              echo "已存在，跳过：${NAME}"
+              continue
+            fi
+
+            if [ "$SIZE" -gt "$LIMIT" ]; then
+              echo "::error::${NAME} 为 $((SIZE / 1048576)) MiB（${SIZE} 字节），超过码云单附件 100 MiB 上限"
+              FAILED=1
+              continue
+            fi
+
+            DONE=0
+            for ATTEMPT in 1 2 3; do
+              echo "上传（第 ${ATTEMPT} 次）：${NAME}（$((SIZE / 1048576)) MiB）"
+              CODE="000"
+              CODE=$(curl -sS --http1.1 \
                 --connect-timeout 30 \
                 --speed-limit 1024 \
-                --speed-time 60 \
+                --speed-time 120 \
                 --max-time 10800 \
                 --request POST \
                 "${API}/releases/${RELEASE_ID}/attach_files" \
                 --form "access_token=${GITEE_TOKEN}" \
                 --form "file=@${FILE}" \
-                --output /dev/null; then
-                echo "上传完成：$(basename "$FILE")"
-              else
-                echo "::error::上传失败：$(basename "$FILE")"
-                exit 1
-              fi
-            ) &
-            PIDS+=("$!")
-          done < <(find release-assets -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.zip' \) -print0)
+                --output gitee-upload.json \
+                --write-out '%{http_code}') || CODE="000"
 
-          UPLOAD_STATUS=0
-          for PID in "${PIDS[@]}"; do
-            if ! wait "$PID"; then
-              UPLOAD_STATUS=1
+              if [ "$CODE" = "200" ] || [ "$CODE" = "201" ]; then
+                echo "上传完成：${NAME}"
+                DONE=1
+                break
+              fi
+
+              echo "::warning::第 ${ATTEMPT} 次上传 ${NAME} 失败（HTTP ${CODE}）：$(head -c 500 gitee-upload.json 2>/dev/null || true)"
+              sleep $((ATTEMPT * 15))
+            done
+
+            if [ "$DONE" != "1" ]; then
+              echo "::error::上传失败：${NAME}"
+              FAILED=1
             fi
-          done
-          exit "$UPLOAD_STATUS"
+          done < <(find release-assets -maxdepth 1 -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.zip' \) -print0)
+
+          exit "$FAILED"

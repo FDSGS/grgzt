@@ -68,7 +68,13 @@
           ]
         }
       ],
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "electronLanguages": [
+        "en",
+        "en-US",
+        "zh_CN",
+        "zh-CN"
+      ]
     }
   },
   "allowScripts": {
