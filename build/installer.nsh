@@ -29,6 +29,7 @@
   Var wbCandidateLength
   Var wbInstallLength
   Var wbPathPrefix
+  Var wbShortcutIcon
 !endif
 
 !macro customPageAfterChangeDir
@@ -85,7 +86,11 @@
   WriteRegStr SHELL_CONTEXT "${INSTALL_REGISTRY_KEY}" "DesktopShortcut" "$wbWantDesktopShortcut"
 
   ${If} $wbWantDesktopShortcut == "1"
-    CreateShortCut "$newDesktopLink" "$appExe" "" "$appExe" 0 "" "" "${APP_DESCRIPTION}"
+    StrCpy $wbShortcutIcon "$appExe"
+    ${If} ${FileExists} "$INSTDIR\resources\icon.ico"
+      StrCpy $wbShortcutIcon "$INSTDIR\resources\icon.ico"
+    ${EndIf}
+    CreateShortCut "$newDesktopLink" "$appExe" "" "$wbShortcutIcon" 0 "" "" "${APP_DESCRIPTION}"
     ClearErrors
     WinShell::SetLnkAUMI "$newDesktopLink" "${APP_ID}"
   ${Else}
@@ -93,6 +98,8 @@
     Delete "$newDesktopLink"
   ${EndIf}
   System::Call 'shell32::SHChangeNotify(i 0x8000000, i 0, i 0, i 0)'
+  ; 覆盖安装时资源管理器可能仍显示旧图标，主动重建一次图标缓存。
+  nsExec::ExecToLog '"$SYSDIR\ie4uinit.exe" -show'
 !macroend
 
 !macro customUnInstall

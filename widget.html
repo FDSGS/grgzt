@@ -246,20 +246,35 @@
     document.documentElement.className = 'theme-' + t;
   }
 
-  function readData(){
+  var currentData = {todo:[], doing:[], done:[]};
+
+  function normalizeData(obj){
     var empty = {todo:[], doing:[], done:[]};
-    try{
-      var raw = localStorage.getItem(STORE_KEY);
-      if(!raw) return empty;
-      var obj = JSON.parse(raw);
-      if(!obj || obj.date !== todayKey()) return empty;
-      return {
-        todo: Array.isArray(obj.todo) ? obj.todo : [],
-        doing: Array.isArray(obj.doing) ? obj.doing : [],
-        done: Array.isArray(obj.done) ? obj.done : []
-      };
-    }catch(e){
-      return empty;
+    if(!obj || obj.date !== todayKey()) return empty;
+    return {
+      todo: Array.isArray(obj.todo) ? obj.todo : [],
+      doing: Array.isArray(obj.doing) ? obj.doing : [],
+      done: Array.isArray(obj.done) ? obj.done : []
+    };
+  }
+
+  function readLocal(){
+    try{ return JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); }catch(e){ return null; }
+  }
+
+  // 优先读取主进程文件存储，保证和主窗口看到的是同一份数据。
+  function refresh(){
+    if(window.appBridge && window.appBridge.readStore){
+      window.appBridge.readStore().then(function(raw){
+        currentData = normalizeData(raw);
+        render();
+      }, function(){
+        currentData = normalizeData(readLocal());
+        render();
+      });
+    }else{
+      currentData = normalizeData(readLocal());
+      render();
     }
   }
 
@@ -268,7 +283,7 @@
     var week = ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()];
     document.getElementById('date').textContent = (d.getMonth()+1) + '月' + d.getDate() + '日 · ' + week;
 
-    var data = readData();
+    var data = currentData;
     var total = data.todo.length + data.doing.length + data.done.length;
     var done = data.done.length;
     var pct = total ? Math.round(done / total * 100) : 0;
@@ -318,18 +333,26 @@
       applyTheme();
       applyLock();
       applyOpacity();
-      render();
+      refresh();
     }
   });
-  window.addEventListener('focus', function(){ applyLock(); applyOpacity(); render(); });
+  window.addEventListener('focus', function(){ applyLock(); applyOpacity(); refresh(); });
+
+  if(window.appBridge && window.appBridge.onStoreChange){
+    window.appBridge.onStoreChange(function(raw){
+      currentData = normalizeData(raw);
+      render();
+    });
+  }
 
   applyTheme();
   applyLock();
   applyOpacity();
   render();
+  refresh();
   setInterval(function(){
     applyTheme();
-    render();
+    refresh();
   }, 30000);
 })();
 </script>

@@ -5,6 +5,8 @@ const fs = require('node:fs');
 const isMac = process.platform === 'darwin';
 const logoPath = path.join(__dirname, '..', 'assets', 'logo.png');
 
+if (process.platform === 'win32') app.setAppUserModelId('com.pomo.workbench');
+
 let mainWin = null;
 let widgetWin = null;
 let configuredCacheDir = null;
@@ -187,6 +189,36 @@ function saveWidgetConfig(patch) {
   try {
     fs.writeFileSync(widgetConfigPath(), JSON.stringify(next));
   } catch (e) {}
+}
+
+function dailyStorePath() {
+  return path.join(app.getPath('userData'), 'daily.json');
+}
+
+function readDailyStore() {
+  try {
+    return JSON.parse(fs.readFileSync(dailyStorePath(), 'utf8'));
+  } catch (error) {
+    return null;
+  }
+}
+
+function writeDailyStore(payload) {
+  if (!payload || typeof payload !== 'object' || typeof payload.date !== 'string') return false;
+  try {
+    const target = dailyStorePath();
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    const temp = `${target}.tmp`;
+    fs.writeFileSync(temp, JSON.stringify(payload));
+    fs.renameSync(temp, target);
+  } catch (error) {
+    return false;
+  }
+  // 主窗口和小组件各自一个渲染进程，统一由主进程广播最新数据。
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send('store:changed', payload);
+  }
+  return true;
 }
 
 function openMainWindow() {
@@ -459,6 +491,10 @@ ipcMain.handle('win:state', (e) => {
   };
 });
 
+ipcMain.handle('store:read', () => readDailyStore());
+
+ipcMain.handle('store:write', (_event, payload) => writeDailyStore(payload));
+
 app.whenReady().then(() => {
   if (isMac) buildMacMenu();
   else Menu.setApplicationMenu(null);
@@ -475,7 +511,14 @@ app.whenReady().then(() => {
 
   createWindow();
 
-  if (loadWidgetConfig().visible !== false) createWidget();
+  // 小组件等主窗口先绘制出来再创建，避免两个窗口同时初始化拖慢启动。
+  const restoreWidget = () => {
+    if (loadWidgetConfig().visible !== false) createWidget();
+  };
+  if (loadWidgetConfig().visible !== false) {
+    if (mainWin && !mainWin.isVisible()) mainWin.once('show', () => setTimeout(restoreWidget, 300));
+    else setTimeout(restoreWidget, 300);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

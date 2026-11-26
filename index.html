@@ -639,31 +639,58 @@
     };
   }
 
-  function load(){
+  function normalize(raw){
+    var out = {date: raw.date};
+    COLS.forEach(function(c){
+      out[c] = Array.isArray(raw[c]) ? raw[c].filter(function(t){
+        return t && typeof t.id === 'string' && typeof t.title === 'string';
+      }) : [];
+    });
+    return out;
+  }
+
+  function loadLocal(){
     try{
       var raw = localStorage.getItem(STORE_KEY);
       if(!raw) return sampleData();
       var obj = JSON.parse(raw);
       if(!obj || typeof obj !== 'object') return sampleData();
       if(obj.date !== todayKey()) return sampleData();
-      var out = {date:obj.date};
-      COLS.forEach(function(c){
-        out[c] = Array.isArray(obj[c]) ? obj[c].filter(function(t){
-          return t && typeof t.id === 'string' && typeof t.title === 'string';
-        }) : [];
-      });
-      return out;
+      return normalize(obj);
     }catch(e){
       return sampleData();
     }
   }
 
-  var state = load();
+  var state = loadLocal();
 
   function save(){
     var payload = {date: todayKey()};
     COLS.forEach(function(c){ payload[c] = state[c]; });
     try{ localStorage.setItem(STORE_KEY, JSON.stringify(payload)); }catch(e){}
+    if(window.appBridge && window.appBridge.writeStore) window.appBridge.writeStore(payload);
+  }
+
+  // 文件存储是主窗口和小组件共用的数据源，首次运行会把今天的初始数据写入，小组件才有内容可显示。
+  function startStore(){
+    if(!window.appBridge || !window.appBridge.readStore){
+      save();
+      return;
+    }
+    window.appBridge.readStore().then(function(raw){
+      if(raw && raw.date === todayKey()) state = normalize(raw);
+      save();
+      render();
+    }, function(){
+      save();
+    });
+    if(window.appBridge.onStoreChange){
+      window.appBridge.onStoreChange(function(raw){
+        if(!raw || raw.date !== todayKey()) return;
+        state = normalize(raw);
+        render();
+      });
+    }
   }
 
   (function initHeader(){
@@ -1013,7 +1040,7 @@
       var t = state[editorMode.col].find(function(x){ return x.id === editorMode.id; });
       if(t && v !== t.title){ t.title = v; save(); }
     }else{
-      state[editorMode.col].push({id:uid(), title:v, createdAt:Date.now()});
+      state[editorMode.col].unshift({id:uid(), title:v, createdAt:Date.now()});
       save();
     }
     closeEditor();
@@ -1261,10 +1288,11 @@
   applyTheme(storedTheme || window.__initialTheme || 'mist');
 
   render();
+  startStore();
 
   window.addEventListener('storage', function(e){
     if(e.key !== STORE_KEY) return;
-    state = load();
+    state = loadLocal();
     render();
   });
 })();

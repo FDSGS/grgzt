@@ -18,5 +18,14 @@ contextBridge.exposeInMainWorld('appBridge', {
   },
   copyText(text) {
     return ipcRenderer.invoke('clipboard:write', text);
+  },
+  readStore() {
+    return ipcRenderer.invoke('store:read');
+  },
+  writeStore(payload) {
+    return ipcRenderer.invoke('store:write', payload);
+  },
+  onStoreChange(callback) {
+    ipcRenderer.on('store:changed', (_event, payload) => callback(payload));
   }
 });
