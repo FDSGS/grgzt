@@ -240,9 +240,12 @@
     return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
   }
 
+  var settingsTheme = (window.appBridge && window.appBridge.initialSettings && window.appBridge.initialSettings.theme) || null;
+
   function applyTheme(){
     var t = 'mist';
     try{ t = localStorage.getItem(THEME_KEY) || 'mist'; }catch(e){}
+    if(settingsTheme) t = settingsTheme;
     document.documentElement.className = 'theme-' + t;
   }
 
@@ -342,6 +345,12 @@
     window.appBridge.onStoreChange(function(raw){
       currentData = normalizeData(raw);
       render();
+    });
+  }
+
+  if(window.appBridge && window.appBridge.onSettingsChange){
+    window.appBridge.onSettingsChange(function(next){
+      if(next && next.theme){ settingsTheme = next.theme; applyTheme(); }
     });
   }
 

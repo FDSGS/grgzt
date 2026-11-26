@@ -27,5 +27,21 @@ contextBridge.exposeInMainWorld('appBridge', {
   },
   onStoreChange(callback) {
     ipcRenderer.on('store:changed', (_event, payload) => callback(payload));
+  },
+  initialSettings: (() => {
+    try {
+      return ipcRenderer.sendSync('settings:sync');
+    } catch (error) {
+      return {};
+    }
+  })(),
+  getSettings() {
+    return ipcRenderer.invoke('settings:get');
+  },
+  setSettings(patch) {
+    return ipcRenderer.invoke('settings:set', patch);
+  },
+  onSettingsChange(callback) {
+    ipcRenderer.on('settings:changed', (_event, payload) => callback(payload));
   }
 });

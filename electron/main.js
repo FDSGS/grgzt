@@ -4,6 +4,7 @@ const fs = require('node:fs');
 
 const isMac = process.platform === 'darwin';
 const logoPath = path.join(__dirname, '..', 'assets', 'logo.png');
+const THEME_BACKGROUNDS = { light: '#F7F8F7', mist: '#DDE5E2', dark: '#161A18' };
 
 if (process.platform === 'win32') app.setAppUserModelId('com.pomo.workbench');
 
@@ -189,6 +190,55 @@ function saveWidgetConfig(patch) {
   try {
     fs.writeFileSync(widgetConfigPath(), JSON.stringify(next));
   } catch (e) {}
+}
+
+function settingsPath() {
+  return path.join(app.getPath('userData'), 'settings.json');
+}
+
+function readSettingsFile() {
+  try {
+    return JSON.parse(fs.readFileSync(settingsPath(), 'utf8')) || {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function writeSettingsFile(patch) {
+  const next = Object.assign(readSettingsFile(), patch);
+  try {
+    fs.mkdirSync(path.dirname(settingsPath()), { recursive: true });
+    fs.writeFileSync(settingsPath(), JSON.stringify(next));
+  } catch (error) {
+    console.warn('无法保存设置：', error.message);
+  }
+  return next;
+}
+
+function getAutoLaunch() {
+  try {
+    return app.getLoginItemSettings().openAtLogin;
+  } catch (error) {
+    return false;
+  }
+}
+
+function setAutoLaunch(enabled) {
+  const openAtLogin = !!enabled;
+  if (app.isPackaged) {
+    const options = { openAtLogin };
+    if (process.platform === 'win32') {
+      options.path = process.execPath;
+      options.args = [];
+    }
+    app.setLoginItemSettings(options);
+  }
+  writeSettingsFile({ autoLaunch: openAtLogin });
+  return getAutoLaunch();
+}
+
+function currentSettings() {
+  return { theme: readSettingsFile().theme || null, autoLaunch: getAutoLaunch() };
 }
 
 function dailyStorePath() {
@@ -430,8 +480,8 @@ function createWindow() {
     height: 880,
     minWidth: 960,
     minHeight: 760,
-    backgroundColor: '#DDE5E2',
-    show: false,
+    backgroundColor: THEME_BACKGROUNDS[readSettingsFile().theme] || THEME_BACKGROUNDS.mist,
+    show: true,
     title: '个人工作台',
     icon: logoPath,
     frame: isMac,
@@ -452,7 +502,7 @@ function createWindow() {
     if (mainWin === win) mainWin = null;
   });
 
-  win.once('ready-to-show', () => win.show());
+  win.focus();
 
   const pushState = () => {
     if (!win.isDestroyed()) {
@@ -494,6 +544,26 @@ ipcMain.handle('win:state', (e) => {
 ipcMain.handle('store:read', () => readDailyStore());
 
 ipcMain.handle('store:write', (_event, payload) => writeDailyStore(payload));
+
+ipcMain.on('settings:sync', (event) => {
+  event.returnValue = currentSettings();
+});
+
+ipcMain.handle('settings:get', () => currentSettings());
+
+ipcMain.handle('settings:set', (_event, patch) => {
+  if (patch && typeof patch.theme === 'string' && THEME_BACKGROUNDS[patch.theme]) {
+    writeSettingsFile({ theme: patch.theme });
+  }
+  if (patch && typeof patch.autoLaunch === 'boolean') {
+    setAutoLaunch(patch.autoLaunch);
+  }
+  const next = currentSettings();
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send('settings:changed', next);
+  }
+  return next;
+});
 
 app.whenReady().then(() => {
   if (isMac) buildMacMenu();

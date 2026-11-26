@@ -8,6 +8,9 @@
 (function(){
   var t = null;
   try{ t = localStorage.getItem('workbench.theme.v1'); }catch(e){}
+  if(window.appBridge && window.appBridge.initialSettings && window.appBridge.initialSettings.theme){
+    t = window.appBridge.initialSettings.theme;
+  }
   if(!t){
     t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'mist';
   }
@@ -440,6 +443,7 @@
       <button class="menu-item" data-menu="edit">编辑</button>
       <button class="menu-item" data-menu="view">视图</button>
       <button class="menu-item" data-menu="window">窗口</button>
+      <button class="menu-item" data-menu="settings">设置</button>
       <button class="menu-item" data-menu="help">帮助</button>
     </nav>
     <div class="win-controls">
@@ -1103,6 +1107,18 @@
   });
 
   /* ---------- 顶部标题栏：自绘菜单 ---------- */
+  var settingsState = { autoLaunch: false };
+  if(window.appBridge && window.appBridge.initialSettings && typeof window.appBridge.initialSettings.autoLaunch === 'boolean'){
+    settingsState.autoLaunch = window.appBridge.initialSettings.autoLaunch;
+  }
+
+  function toggleAutoLaunch(){
+    if(!window.appBridge || !window.appBridge.setSettings) return;
+    window.appBridge.setSettings({ autoLaunch: !settingsState.autoLaunch }).then(function(next){
+      if(next) settingsState.autoLaunch = !!next.autoLaunch;
+    });
+  }
+
   var MENU_DEFS = [
     { id:'file', items:[
       { label:'新建任务', key:'Ctrl+N', act:'newTask' },
@@ -1136,6 +1152,9 @@
       { sep:true },
       { label:'关闭窗口', act:'close' }
     ]},
+    { id:'settings', items:[
+      { label:'开机自动运行', act:'autoLaunch', checked:true }
+    ]},
     { id:'help', items:[
       { label:'关于个人工作台', act:'about' }
     ]}
@@ -1162,11 +1181,14 @@
       }
       var btn = document.createElement('button');
       btn.type = 'button';
-      btn.innerHTML = '<span>' + it.label + '</span>' +
+      var label = it.label;
+      if(it.checked) label = (settingsState.autoLaunch ? '✓ ' : '') + label;
+      btn.innerHTML = '<span>' + label + '</span>' +
         (it.key ? '<span class="key">' + it.key + '</span>' : '');
       btn.addEventListener('click', function(){
         closeMenu();
         if(it.act === 'newTask'){ showInput('todo'); return; }
+        if(it.act === 'autoLaunch'){ toggleAutoLaunch(); return; }
         if(window.appBridge && window.appBridge.action) window.appBridge.action(it.act);
       });
       panel.appendChild(btn);
@@ -1270,6 +1292,7 @@
       b.classList.toggle('active', b.dataset.themeSet === t);
     });
     try{ localStorage.setItem(THEME_KEY, t); }catch(e){}
+    if(window.appBridge && window.appBridge.setSettings) window.appBridge.setSettings({ theme: t });
   }
 
   document.querySelectorAll('.theme-opt').forEach(function(b){
