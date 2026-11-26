@@ -25,6 +25,7 @@
       "output": "release"
     },
     "icon": "assets/logo.png",
+    "afterPack": "build/after-pack.js",
     "files": [
       "electron/**/*",
       "assets/**/*",

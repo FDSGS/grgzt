@@ -55,10 +55,12 @@ jobs:
           LIMIT=104857600
           ls -l release/*.dmg
           for FILE in release/*.dmg; do
+            NAME=$(basename "$FILE")
             SIZE=$(stat -f %z "$FILE")
-            echo "$(basename "$FILE")：${SIZE} 字节（$((SIZE / 1048576)) MiB）"
+            echo "${NAME}：${SIZE} 字节（$((SIZE / 1048576)) MiB）"
+            echo "::warning::${NAME} size=${SIZE}"
             if [ "$SIZE" -gt "$LIMIT" ]; then
-              echo "::error::$(basename "$FILE") 超过码云单附件 100 MiB 上限"
+              echo "::error::${NAME} 体积 ${SIZE} 字节（$((SIZE / 1048576)) MiB）超过码云单附件 100 MiB 上限"
               exit 1
             fi
           done
