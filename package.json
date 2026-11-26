@@ -1,6 +1,6 @@
 {
   "name": "pomo-workbench",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "个人工作台 · 今日三列任务看板",
   "main": "electron/main.js",
   "author": "方城县破默网络科技工作室 <1316737309@qq.com>",
@@ -47,16 +47,11 @@
           "arch": [
             "x64"
           ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
         }
       ]
     },
     "nsis": {
+      "artifactName": "${productName}-${version}-${arch}-Setup.${ext}",
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
