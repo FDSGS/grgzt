@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, clipboard, shell, screen } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, clipboard, shell, screen, session } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 
@@ -7,6 +7,163 @@ const logoPath = path.join(__dirname, '..', 'assets', 'logo.png');
 
 let mainWin = null;
 let widgetWin = null;
+let configuredCacheDir = null;
+
+function readInstallerStorage() {
+  if (process.platform !== 'win32' || !app.isPackaged) return null;
+
+  try {
+    const buffer = fs.readFileSync(path.join(path.dirname(process.execPath), 'storage.ini'));
+    let text;
+    if (buffer[0] === 0xFF && buffer[1] === 0xFE) {
+      text = buffer.subarray(2).toString('utf16le');
+    } else {
+      text = buffer.toString('utf8').replace(/^\uFEFF/, '');
+      if (text.includes('\0')) text = buffer.toString('utf16le').replace(/^\uFEFF/, '');
+    }
+
+    const config = {};
+    let section = '';
+    for (const rawLine of text.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith(';') || line.startsWith('#')) continue;
+      const sectionMatch = /^\[([^\]]+)\]$/.exec(line);
+      if (sectionMatch) {
+        section = sectionMatch[1].toLowerCase();
+        continue;
+      }
+      const separator = line.indexOf('=');
+      if (section === 'storage' && separator > 0) {
+        config[line.slice(0, separator).trim()] = line.slice(separator + 1).trim();
+      }
+    }
+    return config;
+  } catch (error) {
+    return null;
+  }
+}
+
+function normalizeConfiguredPath(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!path.win32.isAbsolute(trimmed)) return null;
+  const normalized = path.win32.normalize(trimmed);
+  return path.win32.dirname(normalized) === normalized ? null : normalized;
+}
+
+function directoryHasEntries(directory) {
+  try {
+    return fs.readdirSync(directory).length > 0;
+  } catch (error) {
+    if (error.code === 'ENOENT') return false;
+    throw error;
+  }
+}
+
+function prepareDataDirectory(target, previous) {
+  if (target.toLowerCase() === previous.toLowerCase()) {
+    fs.mkdirSync(target, { recursive: true });
+    return target;
+  }
+
+  const parent = path.dirname(target);
+  if (!fs.existsSync(parent)) fs.mkdirSync(parent, { recursive: true });
+  if (directoryHasEntries(target) || !directoryHasEntries(previous)) {
+    fs.mkdirSync(target, { recursive: true });
+    return target;
+  }
+
+  const staging = `${target}.migrating-${process.pid}`;
+  fs.mkdirSync(staging, { recursive: true });
+  try {
+    for (const name of ['Local Storage', 'widget.json']) {
+      const source = path.join(previous, name);
+      if (fs.existsSync(source)) {
+        fs.cpSync(source, path.join(staging, name), {
+          recursive: true,
+          force: false,
+          errorOnExist: true
+        });
+      }
+    }
+    if (fs.existsSync(target)) {
+      if (directoryHasEntries(target)) throw new Error('目标数据目录不为空');
+      fs.rmdirSync(target);
+    }
+    fs.renameSync(staging, target);
+    return target;
+  } catch (error) {
+    fs.rmSync(staging, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+function redirectCacheDirectory(dataDir, cacheDir, name) {
+  const target = path.join(cacheDir, name);
+  const link = path.join(dataDir, name);
+  fs.mkdirSync(target, { recursive: true });
+
+  try {
+    const stat = fs.lstatSync(link);
+    if (stat.isSymbolicLink()) {
+      const current = fs.readlinkSync(link).replace(/^\\\\\?\\/, '');
+      const normalizeLink = value => path.win32.normalize(value).replace(/[\\/]+$/, '').toLowerCase();
+      if (normalizeLink(current) === normalizeLink(target)) return;
+      fs.rmdirSync(link);
+    } else {
+      // 这里只会清理可再生的缓存，不会触碰 Local Storage 或 widget.json。
+      fs.rmSync(link, { recursive: true, force: true });
+    }
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  fs.symlinkSync(target, link, 'junction');
+}
+
+function configureInstalledStorage() {
+  const config = readInstallerStorage();
+  if (!config) return;
+
+  const previousUserData = app.getPath('userData');
+  const previousSessionData = app.getPath('sessionData');
+  const dataDir = normalizeConfiguredPath(config.DataDir);
+  const cacheDir = normalizeConfiguredPath(config.CacheDir);
+  let activeDataDir = previousUserData;
+
+  if (dataDir) {
+    try {
+      const preparedDataDir = prepareDataDirectory(dataDir, previousUserData);
+      app.setPath('userData', preparedDataDir);
+      app.setPath('sessionData', preparedDataDir);
+      activeDataDir = preparedDataDir;
+    } catch (error) {
+      try {
+        app.setPath('userData', previousUserData);
+        app.setPath('sessionData', previousSessionData);
+      } catch (restoreError) {}
+      console.warn('无法使用自定义数据目录，已保留原目录：', error.message);
+    }
+  }
+
+  if (cacheDir) {
+    try {
+      fs.mkdirSync(cacheDir, { recursive: true });
+      // Electron 将 HTTP 缓存固定在 sessionData 下，用目录联接分离缓存实体和任务数据。
+      for (const name of ['Cache', 'Code Cache', 'GPUCache', 'DawnGraphiteCache', 'DawnWebGPUCache']) {
+        try {
+          redirectCacheDirectory(activeDataDir, cacheDir, name);
+        } catch (error) {
+          console.warn(`无法重定向 ${name}：`, error.message);
+        }
+      }
+      configuredCacheDir = cacheDir;
+    } catch (error) {
+      console.warn('无法使用自定义缓存目录，已保留原目录：', error.message);
+    }
+  }
+}
+
+configureInstalledStorage();
 
 function getWin() {
   if (mainWin && !mainWin.isDestroyed()) return mainWin;
@@ -305,6 +462,16 @@ ipcMain.handle('win:state', (e) => {
 app.whenReady().then(() => {
   if (isMac) buildMacMenu();
   else Menu.setApplicationMenu(null);
+
+  if (configuredCacheDir) {
+    try {
+      const codeCacheDir = path.join(configuredCacheDir, 'Code Cache');
+      fs.mkdirSync(codeCacheDir, { recursive: true });
+      session.defaultSession.setCodeCachePath(codeCacheDir);
+    } catch (error) {
+      console.warn('无法设置代码缓存目录：', error.message);
+    }
+  }
 
   createWindow();
 

@@ -52,7 +52,11 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "shortcutName": "个人工作台"
+      "shortcutName": "个人工作台",
+      "include": "build/installer.nsh",
+      "createDesktopShortcut": false,
+      "runAfterFinish": true,
+      "unicode": true
     },
     "mac": {
       "target": [
