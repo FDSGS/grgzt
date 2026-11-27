@@ -168,6 +168,26 @@ function configureInstalledStorage() {
 
 configureInstalledStorage();
 
+// 启动时主动同步登录项参数，确保 args 带 --silent。
+// 否则用户在旧版开启自启、升级新版后注册表还是老的 args，导致开机不会静默。
+function syncAutoLaunchArgs() {
+  if (!app.isPackaged) return;
+  if (process.platform !== 'win32') return;
+  const current = app.getLoginItemSettings();
+  if (current.openAtLogin) {
+    const needsSilent = !Array.isArray(current.args) || !current.args.includes('--silent');
+    if (needsSilent) {
+      app.setLoginItemSettings({
+        openAtLogin: true,
+        path: process.execPath,
+        args: ['--silent']
+      });
+      console.info('[autoLaunch] 已同步登录项 args 为 --silent');
+    }
+  }
+}
+syncAutoLaunchArgs();
+
 function getWin() {
   if (mainWin && !mainWin.isDestroyed()) return mainWin;
   return BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
