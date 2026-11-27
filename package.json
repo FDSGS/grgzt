@@ -1,6 +1,6 @@
 {
   "name": "pomo-workbench",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "description": "个人工作台 · 今日三列任务看板",
   "main": "electron/main.js",
   "author": "方城县破默网络科技工作室 <1316737309@qq.com>",

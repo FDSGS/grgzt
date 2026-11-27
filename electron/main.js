@@ -312,8 +312,18 @@ function createWidget() {
   const wa = screen.getPrimaryDisplay().workArea;
   const width = 300;
   const height = 340;
-  const x = Number.isFinite(cfg.x) ? cfg.x : wa.x + wa.width - width - 24;
-  const y = Number.isFinite(cfg.y) ? cfg.y : wa.y + 24;
+  // 初始位置也要 clamp 到可用区域内，防止换显示器/分辨率后落屏外
+  let x, y;
+  if (Number.isFinite(cfg.x)) {
+    x = Math.max(wa.x, Math.min(cfg.x, wa.x + wa.width - width));
+  } else {
+    x = wa.x + wa.width - width - 24;
+  }
+  if (Number.isFinite(cfg.y)) {
+    y = Math.max(wa.y, Math.min(cfg.y, wa.y + wa.height - height));
+  } else {
+    y = wa.y + 24;
+  }
 
   widgetWin = new BrowserWindow({
     width,
@@ -345,13 +355,38 @@ function createWidget() {
 
   widgetWin.once('ready-to-show', () => widgetWin.showInactive());
 
+  const SNAP_THRESHOLD = 30;
+
   let posTimer = null;
   widgetWin.on('moved', () => {
     clearTimeout(posTimer);
     posTimer = setTimeout(() => {
       if (!widgetWin || widgetWin.isDestroyed()) return;
-      const [wx, wy] = widgetWin.getPosition();
-      saveWidgetConfig({ x: wx, y: wy, visible: true });
+      const bounds = widgetWin.getBounds();
+      const wa = screen.getPrimaryDisplay().workArea;
+
+      // 1. 先强制边界限制，确保不超出可用屏幕区域
+      let x = Math.max(wa.x, Math.min(bounds.x, wa.x + wa.width - bounds.width));
+      let y = Math.max(wa.y, Math.min(bounds.y, wa.y + wa.height - bounds.height));
+
+      // 2. 边缘吸附：距边缘 SNAP_THRESHOLD 内就吸上去
+      const snapEdges = [];
+      if (x - wa.x <= SNAP_THRESHOLD) snapEdges.push('left');
+      if ((wa.x + wa.width) - (x + bounds.width) <= SNAP_THRESHOLD) snapEdges.push('right');
+      if (y - wa.y <= SNAP_THRESHOLD) snapEdges.push('top');
+      if ((wa.y + wa.height) - (y + bounds.height) <= SNAP_THRESHOLD) snapEdges.push('bottom');
+
+      if (snapEdges.includes('left')) x = wa.x;
+      if (snapEdges.includes('right')) x = wa.x + wa.width - bounds.width;
+      if (snapEdges.includes('top')) y = wa.y;
+      if (snapEdges.includes('bottom')) y = wa.y + wa.height - bounds.height;
+
+      // 真的需要调整才 setPosition，避免递归触发 moved
+      if (x !== bounds.x || y !== bounds.y) {
+        widgetWin.setPosition(x, y);
+      }
+
+      saveWidgetConfig({ x, y, visible: true });
     }, 400);
   });
 
