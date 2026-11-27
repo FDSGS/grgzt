@@ -597,7 +597,7 @@
 (function(){
   'use strict';
 
-  var STORE_KEY = 'workbench.daily.v2';
+  var STORE_KEY = 'workbench.store.v1';
   var THEME_KEY = 'workbench.theme.v1';
   var THEMES = ['light','mist','dark'];
   var COLS = ['todo','doing','done'];
@@ -618,33 +618,16 @@
     check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>'
   };
 
-  function todayKey(){
-    var d = new Date();
-    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-  }
   function uid(){
     return Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-5);
   }
-  function sampleData(){
-    var now = Date.now();
-    return {
-      todo:[
-        {id:uid(), title:'整理项目周报并发送团队', createdAt:now-3600000},
-        {id:uid(), title:'准备下午 3 点的产品评审材料', createdAt:now-3000000},
-        {id:uid(), title:'阅读《Design Systems》第三章', createdAt:now-1800000}
-      ],
-      doing:[
-        {id:uid(), title:'重构个人工作台的进度模块', createdAt:now-7200000}
-      ],
-      done:[
-        {id:uid(), title:'晨间 30 分钟轻跑', createdAt:now-10800000},
-        {id:uid(), title:'回复客户邮件并澄清需求', createdAt:now-9000000}
-      ]
-    };
+  function emptyState(){
+    return {todo:[], doing:[], done:[]};
   }
 
   function normalize(raw){
-    var out = {date: raw.date};
+    var out = emptyState();
+    if(!raw || typeof raw !== 'object') return out;
     COLS.forEach(function(c){
       out[c] = Array.isArray(raw[c]) ? raw[c].filter(function(t){
         return t && typeof t.id === 'string' && typeof t.title === 'string';
@@ -656,41 +639,46 @@
   function loadLocal(){
     try{
       var raw = localStorage.getItem(STORE_KEY);
-      if(!raw) return sampleData();
+      if(!raw) return null;
       var obj = JSON.parse(raw);
-      if(!obj || typeof obj !== 'object') return sampleData();
-      if(obj.date !== todayKey()) return sampleData();
+      if(!obj || typeof obj !== 'object') return null;
       return normalize(obj);
     }catch(e){
-      return sampleData();
+      return null;
     }
   }
 
-  var state = loadLocal();
+  // 启动时先看 localStorage 有没有数据（降级路径）
+  var state = loadLocal() || emptyState();
 
   function save(){
-    var payload = {date: todayKey()};
+    var payload = {};
     COLS.forEach(function(c){ payload[c] = state[c]; });
     try{ localStorage.setItem(STORE_KEY, JSON.stringify(payload)); }catch(e){}
     if(window.appBridge && window.appBridge.writeStore) window.appBridge.writeStore(payload);
   }
 
-  // 文件存储是主窗口和小组件共用的数据源，首次运行会把今天的初始数据写入，小组件才有内容可显示。
+  // 文件存储是主窗口和小组件共用的数据源。数据累计保留，不按日期覆盖。
   function startStore(){
     if(!window.appBridge || !window.appBridge.readStore){
       save();
       return;
     }
     window.appBridge.readStore().then(function(raw){
-      if(raw && raw.date === todayKey()) state = normalize(raw);
-      save();
+      if(raw){
+        state = normalize(raw);
+        save();
+      }else{
+        // 主进程文件存储为空，才把当前 state 写进去（首次启动）
+        save();
+      }
       render();
     }, function(){
       save();
     });
     if(window.appBridge.onStoreChange){
       window.appBridge.onStoreChange(function(raw){
-        if(!raw || raw.date !== todayKey()) return;
+        if(!raw) return;
         state = normalize(raw);
         render();
       });

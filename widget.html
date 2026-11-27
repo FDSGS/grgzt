@@ -179,7 +179,7 @@
 (function(){
   'use strict';
 
-  var STORE_KEY = 'workbench.daily.v2';
+  var STORE_KEY = 'workbench.store.v1';
   var THEME_KEY = 'workbench.theme.v1';
   var LOCK_KEY = 'workbench.widget.lock';
   var OPACITY_KEY = 'workbench.widget.opacity';
@@ -235,11 +235,6 @@
     applyOpacity();
   });
 
-  function todayKey(){
-    var d = new Date();
-    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-  }
-
   var settingsTheme = (window.appBridge && window.appBridge.initialSettings && window.appBridge.initialSettings.theme) || null;
 
   function applyTheme(){
@@ -253,7 +248,7 @@
 
   function normalizeData(obj){
     var empty = {todo:[], doing:[], done:[]};
-    if(!obj || obj.date !== todayKey()) return empty;
+    if(!obj || typeof obj !== 'object') return empty;
     return {
       todo: Array.isArray(obj.todo) ? obj.todo : [],
       doing: Array.isArray(obj.doing) ? obj.doing : [],

@@ -223,13 +223,18 @@ function getAutoLaunch() {
   }
 }
 
+function isSilentLaunch() {
+  if (!app.isPackaged) return false;
+  return process.argv.includes('--silent') || process.argv.includes('--hidden');
+}
+
 function setAutoLaunch(enabled) {
   const openAtLogin = !!enabled;
   if (app.isPackaged) {
     const options = { openAtLogin };
     if (process.platform === 'win32') {
       options.path = process.execPath;
-      options.args = [];
+      options.args = ['--silent'];
     }
     app.setLoginItemSettings(options);
   }
@@ -247,24 +252,40 @@ function dailyStorePath() {
 
 function readDailyStore() {
   try {
-    return JSON.parse(fs.readFileSync(dailyStorePath(), 'utf8'));
+    const raw = JSON.parse(fs.readFileSync(dailyStorePath(), 'utf8'));
+    if (!raw || typeof raw !== 'object') return null;
+    // 兼容旧格式：去掉 date 字段，保留所有任务
+    const out = {};
+    const COLS = ['todo', 'doing', 'done'];
+    for (const c of COLS) {
+      out[c] = Array.isArray(raw[c]) ? raw[c].filter(t => t && typeof t.id === 'string' && typeof t.title === 'string') : [];
+    }
+    return out;
   } catch (error) {
     return null;
   }
 }
 
 function writeDailyStore(payload) {
-  if (!payload || typeof payload !== 'object' || typeof payload.date !== 'string') return false;
+  if (!payload || typeof payload !== 'object') return false;
   try {
     const target = dailyStorePath();
     fs.mkdirSync(path.dirname(target), { recursive: true });
+    // 写入前备份旧文件，防止意外覆盖丢失
+    if (fs.existsSync(target)) {
+      try { fs.copyFileSync(target, `${target}.bak`); } catch (e) {}
+    }
     const temp = `${target}.tmp`;
-    fs.writeFileSync(temp, JSON.stringify(payload));
+    const sanitized = {};
+    const COLS = ['todo', 'doing', 'done'];
+    for (const c of COLS) {
+      sanitized[c] = Array.isArray(payload[c]) ? payload[c].filter(t => t && typeof t.id === 'string' && typeof t.title === 'string') : [];
+    }
+    fs.writeFileSync(temp, JSON.stringify(sanitized));
     fs.renameSync(temp, target);
   } catch (error) {
     return false;
   }
-  // 主窗口和小组件各自一个渲染进程，统一由主进程广播最新数据。
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) win.webContents.send('store:changed', payload);
   }
@@ -474,14 +495,14 @@ function buildMacMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-function createWindow() {
+function createWindow(hidden) {
   const win = new BrowserWindow({
     width: 1320,
     height: 880,
     minWidth: 960,
     minHeight: 760,
     backgroundColor: THEME_BACKGROUNDS[readSettingsFile().theme] || THEME_BACKGROUNDS.mist,
-    show: true,
+    show: !hidden,
     title: '个人工作台',
     icon: logoPath,
     frame: isMac,
@@ -502,7 +523,7 @@ function createWindow() {
     if (mainWin === win) mainWin = null;
   });
 
-  win.focus();
+  if (!hidden) win.focus();
 
   const pushState = () => {
     if (!win.isDestroyed()) {
@@ -579,15 +600,20 @@ app.whenReady().then(() => {
     }
   }
 
-  createWindow();
+  const silent = isSilentLaunch();
+  createWindow(silent);
 
-  // 小组件等主窗口先绘制出来再创建，避免两个窗口同时初始化拖慢启动。
-  const restoreWidget = () => {
-    if (loadWidgetConfig().visible !== false) createWidget();
-  };
-  if (loadWidgetConfig().visible !== false) {
-    if (mainWin && !mainWin.isVisible()) mainWin.once('show', () => setTimeout(restoreWidget, 300));
-    else setTimeout(restoreWidget, 300);
+  // 静默启动（开机自启）：主窗口隐藏，立即创建小组件，让用户看到唯一入口
+  // 正常启动：等主窗口 show 后再启小组件，避免同时初始化拖慢
+  const wantWidget = loadWidgetConfig().visible !== false;
+  if (silent) {
+    if (wantWidget) createWidget();
+  } else if (wantWidget) {
+    if (mainWin && !mainWin.isVisible()) {
+      mainWin.once('show', () => setTimeout(() => createWidget(), 300));
+    } else {
+      setTimeout(() => createWidget(), 300);
+    }
   }
 
   app.on('activate', () => {
